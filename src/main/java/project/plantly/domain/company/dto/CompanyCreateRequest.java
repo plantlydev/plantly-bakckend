@@ -179,7 +179,7 @@ public record CompanyCreateRequest(
             String partners,
             @Size(max = CompanyConstraints.PERIOD_MAX, message = "수행 기간은 50자를 넘을 수 없습니다.")
             String period,
-            // 레퍼런스 이미지 장수도 등급이 정한다(ReferenceImagePolicy). 여기 상한은 천장이다.
+            // 레퍼런스 1건당 이미지 장수 한도(모든 회사 공통).
             @Size(max = CompanyConstraints.REFERENCE_IMAGES_CEILING, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.")
             List<@NotBlank(message = "이미지 주소는 비어 있을 수 없습니다.")
                     @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.")

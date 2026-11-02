@@ -287,11 +287,11 @@ public class CompanyControllerTest {
     }
 
     @Test
-    @DisplayName("등록 정책(등급 한도/마스터 유효성 등)에 걸리면 400(정책 위반 메시지) 를 반환한다")
+    @DisplayName("등록 정책(구조 검증/마스터 유효성 등)에 걸리면 400(정책 위반 메시지) 를 반환한다")
     void createMyCompany_policyViolation() throws Exception {
-        // 정책 위반은 서비스가 BusinessException(400)으로 던진다. 대표로 카테고리 한도 초과를 사용한다.
+        // 정책 위반은 서비스가 BusinessException(400)으로 던진다. 대표로 갤러리 이미지 타입 위반을 사용한다.
         given(companyRegistrationService.register(eq(7L), any(MyCompanyCreateRequest.class)))
-                .willThrow(new BusinessException(CompanyErrorCode.CATEGORY_LIMIT_EXCEEDED));
+                .willThrow(new BusinessException(CompanyErrorCode.GALLERY_IMAGE_TYPE_NOT_ALLOWED));
         authenticate(7L, UserRole.MEMBER);
 
         mockMvc.perform(post("/api/v1/companies")
@@ -299,7 +299,7 @@ public class CompanyControllerTest {
                         .content(objectMapper.writeValueAsString(CompanyCreateRequestSamples.myFull())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error").value("현재 등급에서 선택 가능한 카테고리 개수를 초과했습니다."))
+                .andExpect(jsonPath("$.error").value("갤러리에는 상세 이미지(DETAIL)만 등록할 수 있습니다."))
                 .andDo(document("company-create-policy-violation",
                         responseFields(CompanyApiDocs.errorResponseFields())));
     }

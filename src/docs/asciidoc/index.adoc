@@ -259,7 +259,7 @@ include::{snippets}/company-reverification/response-fields.adoc[]
 [[company-create]]
 === 회사 등록 (유저 자가등록)
 
-인증된 유저가 본인 회사를 등록합니다. 등록자는 즉시 소유자(`OWNER`)가 되며, 회사는 `FREE` 등급으로 시작합니다.
+인증된 유저가 본인 회사를 등록합니다. 등록자는 즉시 소유자(`OWNER`)가 됩니다.
 변경 요청이므로 세션 쿠키와 CSRF 토큰이 필요합니다(<<overview-auth>> 참고).
 
 자가등록은 <<company-verification>> 을 먼저 통과해야 하며, 발급받은 `verificationId` 를 함께 보냅니다.
@@ -269,7 +269,9 @@ NOTE: 요청 본문에 `businessNumber`/`ceoName`/`establishmentDate` 는 없습
 `establishmentDate` 에는 국세청이 검증한 개업일자가 들어갑니다. 인증 후에는 대표자명·개업일자를 수정할 수 없습니다(<<company-update>>).
 
 요청 본문은 회사 본체와 부속(연락처/이미지/레퍼런스/소재·설비·태그/링크 마스터 ID)을 한 번에 받습니다.
-`companyName` 외 항목은 임시저장(DRAFT) 호환을 위해 모두 선택이며, 일부 항목은 등급별 정책 제한을 받습니다.
+`companyName` 외 항목은 임시저장(DRAFT) 호환을 위해 모두 선택입니다.
+컬렉션 개수 한도(카테고리 10개 · 상세 이미지 30장 · 레퍼런스 1건당 이미지 10장)는 모든 회사에 똑같이 적용되며,
+넘기면 입력값 검증 실패(`400`)로 거부됩니다(<<meta-form-constraints>> 의 `maxItems`).
 
 인증 식별자가 유효하지 않으면 등록이 거부됩니다 — 본인이 받은 것이 아니면 `400`(`VERIFICATION_NOT_FOUND`),
 이미 다른 회사에 썼으면 `409`(`VERIFICATION_ALREADY_USED`).
@@ -307,7 +309,7 @@ include::{snippets}/company-create-validation-error/response-fields.adoc[]
 
 ===== 등록 정책 위반 (400 Bad Request)
 
-등급별 한도나 부속 데이터 유효성 등 등록 정책에 걸리면 `400` 이 반환됩니다.
+부속 데이터 유효성 등 등록 정책에 걸리면 `400` 이 반환됩니다.
 응답 형태는 아래와 동일하며, `error` 메시지로 원인을 구분합니다.
 
 include::{snippets}/company-create-policy-violation/http-response.adoc[]
@@ -320,11 +322,6 @@ include::{snippets}/company-create-policy-violation/response-fields.adoc[]
 |===
 | 사유 | `error` 메시지
 
-| 카테고리 개수 초과 | 현재 등급에서 선택 가능한 카테고리 개수를 초과했습니다.
-| 동영상 미허용 등급 | 현재 등급에서는 동영상을 등록할 수 없습니다.
-| 레퍼런스 이미지 미허용 등급 | 현재 등급에서는 레퍼런스 이미지를 등록할 수 없습니다.
-| 레퍼런스 이미지 장수 초과 | 현재 등급에서 등록 가능한 레퍼런스 이미지 장수를 초과했습니다.
-| 상세 이미지 장수 초과 | 현재 등급에서 등록 가능한 상세 이미지 장수를 초과했습니다.
 | 갤러리 이미지 타입 오류 | 갤러리에는 상세 이미지(DETAIL)만 등록할 수 있습니다.
 | 존재하지 않는 카테고리 ID | 존재하지 않는 카테고리가 포함되어 있습니다.
 | 존재하지 않는 인증 ID | 존재하지 않는 인증이 포함되어 있습니다.
@@ -731,8 +728,8 @@ include::{snippets}/company-update-validation-error/response-fields.adoc[]
 | `PUT /api/v1/companies/{id}/equipment` | `["문자열", ...]` | 보유 설비명 목록
 | `PUT /api/v1/companies/{id}/contacts` | `[{연락처}, ...]` | 담당자 연락처 (현재 1건 제한)
 | `PUT /api/v1/companies/{id}/images` | `[{이미지}, ...]` | 갤러리 이미지 (DETAIL 타입만 허용)
-| `PUT /api/v1/companies/{id}/references` | `[{레퍼런스}, ...]` | 프로젝트 레퍼런스 (현재 1건 제한, 등급별 이미지 장수 제한)
-| `PUT /api/v1/companies/{id}/categories` | `[숫자, ...]` | 카테고리 ID 목록 (등급별 개수 제한)
+| `PUT /api/v1/companies/{id}/references` | `[{레퍼런스}, ...]` | 프로젝트 레퍼런스 (현재 1건 제한, 1건당 이미지 10장)
+| `PUT /api/v1/companies/{id}/categories` | `[숫자, ...]` | 카테고리 ID 목록 (최대 10개)
 | `PUT /api/v1/companies/{id}/certifications` | `[{인증}, ...]` | 인증 목록. 다른 링크와 달리 ID 배열이 아니라 `{"certificationId": 숫자, "customName": "문자열"}` 객체 배열입니다 (아래 참고)
 | `PUT /api/v1/companies/{id}/industries` | `[숫자, ...]` | 산업군 ID 목록
 | `PUT /api/v1/companies/{id}/countries` | `[숫자, ...]` | 수출 국가 ID 목록
@@ -997,7 +994,7 @@ include::{snippets}/domestic-region-public-list/response-fields.adoc[]
 * 요청은 `multipart/form-data` 이고 파트 이름은 `file` 입니다. `Content-Type` 헤더는 직접 지정하지 말고 브라우저가 boundary 와 함께
   채우게 두세요.
 * *한 요청에 한 장입니다.* 갤러리처럼 여러 장을 고르면 장마다 호출합니다 — 장별 재시도와 진행률이 따로 생깁니다.
-* 이 API 는 파일을 URL 로 바꿀 뿐, 회사에 몇 장까지 붙일 수 있는지는 보지 않습니다. 등급별 장수 제한은 발행·수정 때 검사합니다.
+* 이 API 는 파일을 URL 로 바꿀 뿐, 회사에 몇 장까지 붙일 수 있는지는 보지 않습니다. 장수 제한은 발행·수정 때 검사합니다.
 * 올리기 전에 <<meta-upload>> 의 용량·형식으로 먼저 거르세요.
 
 [cols="3,1,3"]
@@ -1069,7 +1066,7 @@ include::{snippets}/file-not-found/response-fields.adoc[]
 [[admin-company-create]]
 === 회사 등록 (관리자)
 
-관리자가 회사를 대신 등록합니다. 소유자 미연동(`userId=null`) 상태로 생성되며, 등급 한도 정책은 면제됩니다.
+관리자가 회사를 대신 등록합니다. 소유자 미연동(`userId=null`) 상태로 생성됩니다.
 변경 요청이므로 세션 쿠키와 CSRF 토큰이 필요합니다(<<overview-auth>> 참고).
 
 ==== 요청
@@ -1096,7 +1093,7 @@ include::{snippets}/admin-company-create-forbidden/http-response.adoc[]
 
 include::{snippets}/admin-company-create-forbidden/response-fields.adoc[]
 
-NOTE: 입력값 검증 실패(400)는 <<company-create>> 와 동일한 형태입니다. 단, 관리자 등록은 등급 한도 정책이 면제되며 마스터 ID 유효성 등 일부 검증만 동일하게 적용됩니다.
+NOTE: 입력값 검증 실패(400)는 <<company-create>> 와 동일한 형태입니다. 컬렉션 개수 한도도 자가등록과 같습니다.
 
 [[admin-company-list]]
 === 회사 목록 (관리자)

@@ -147,11 +147,11 @@ class CompanyServiceTest {
 
         service.createByUser(USER_ID, myRequest);
 
-        // 정책은 이제 CompanyPolicyView 를 받는다. 뷰가 실은 구독(체험 최고등급, 미면제)을 담고 전 정책이 실행됨을 본다.
-        ArgumentCaptor<CompanyPolicyView> viewCaptor = ArgumentCaptor.forClass(CompanyPolicyView.class);
-        verify(policyA).apply(viewCaptor.capture());
+        verify(policyA).apply(any(CompanyPolicyView.class));
         verify(policyB).apply(any(CompanyPolicyView.class));
-        CompanySubscription captured = viewCaptor.getValue().subscription();
+        ArgumentCaptor<CompanySubscription> subCaptor = ArgumentCaptor.forClass(CompanySubscription.class);
+        verify(companySubscriptionRepository).save(subCaptor.capture());
+        CompanySubscription captured = subCaptor.getValue();
         assertThat(captured.effectiveGrade()).isEqualTo(CompanyGrade.ENTERPRISE);
         assertThat(captured.getStatus()).isEqualTo(SubscriptionStatus.TRIAL);
         // 면제가 아니라 '체험'이다 — 정책은 정상적으로 발화하되 한도가 최상위라 걸리지 않는다.
@@ -172,15 +172,15 @@ class CompanyServiceTest {
 
         assertThat(companyId).isEqualTo(20L);
         verify(companyRepository).save(any(Company.class));
-        verify(companySubscriptionRepository).save(any(CompanySubscription.class));
-        verify(childWriter).write(any(Company.class), eq(request));
+                verify(childWriter).write(any(Company.class), eq(request));
         verify(linkWriter).write(any(Company.class), eq(request));
         verify(searchDocumentWriter).write(20L);
         verify(companyMemberRepository, never()).save(any());
 
-        ArgumentCaptor<CompanyPolicyView> viewCaptor = ArgumentCaptor.forClass(CompanyPolicyView.class);
-        verify(policy).apply(viewCaptor.capture());
-        CompanySubscription captured = viewCaptor.getValue().subscription();
+        verify(policy).apply(any(CompanyPolicyView.class));
+        ArgumentCaptor<CompanySubscription> subCaptor = ArgumentCaptor.forClass(CompanySubscription.class);
+        verify(companySubscriptionRepository).save(subCaptor.capture());
+        CompanySubscription captured = subCaptor.getValue();
         assertThat(captured.isExempt()).isTrue();
         assertThat(captured.getStatus()).isEqualTo(SubscriptionStatus.ADMIN_EXEMPT);
     }

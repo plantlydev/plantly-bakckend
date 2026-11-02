@@ -66,7 +66,7 @@ public class CompanyResponseSamples {
                         true, LocalDateTime.of(2024, 1, 2, 3, 4, 5),   // businessVerified, businessVerifiedAt
                         true, false, false,                            // featured, spotlight, deleted
                         CompanyVisibility.PUBLIC,
-                        true,                                          // videoVisibleToPublic (등급이 동영상 공개를 허용)
+                        true,                                          // videoVisibleToPublic (항상 true — 등급 게이트 폐지)
                         List.of(new GalleryImageResponse("https://cdn.plantly.test/ref/1.png", ImageType.PROJECT, 0, true)),
                         LocalDateTime.of(2024, 1, 2, 3, 4, 5),
                         LocalDateTime.of(2024, 1, 2, 3, 4, 5)));

@@ -651,8 +651,7 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "deleted").type(JsonFieldType.BOOLEAN).description("소프트 삭제 여부"),
                 fieldWithPath(p + "visibility").type(JsonFieldType.STRING).description("공개 범위 (PUBLIC / PRIVATE)"),
                 fieldWithPath(p + "videoVisibleToPublic").type(JsonFieldType.BOOLEAN)
-                        .description("저장된 동영상이 방문자에게도 보이는지. false = 저장은 돼 있으나 등급이 낮아 공개 뷰에서 가려진 상태"
-                                + " (소유자/관리자 뷰의 profile.videoUrl 은 이 값과 무관하게 항상 저장값)"),
+                        .description("(폐지 예정) 동영상 공개 여부. 등급 게이트가 폐지되어 항상 true"),
                 fieldWithPath(p + "representativeReferenceImages").type(JsonFieldType.ARRAY)
                         .description("대표 레퍼런스의 이미지 전부 (꺼진 것 포함, 표시 순서). profile 의 레퍼런스는 표지 한 장뿐이라,"
                                 + " 레퍼런스 전체 교체(PUT) 전에 수정 화면이 이 목록으로 채운다. 레퍼런스가 없으면 빈 배열"),

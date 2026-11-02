@@ -180,16 +180,7 @@ public class CompanyQueryService {
         CompanyAggregate aggregate = aggregateLoader.load(company);
         // 마지막 false = 꺼진(active=false) 컬렉션 항목은 응답에서 아예 뺀다. 등급을 여기서 다시 읽지 않는다 —
         // "왜 꺼졌는가"는 쓰기·재조정 쪽이 이미 판단해 저장해 둔 상태이고, 조회는 그 상태만 읽는다.
-        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe, videoVisibleToPublic(aggregate), false);
-    }
-
-    // 동영상 공개 자격. 저장은 등급과 무관하게 열려 있고(등급이 올랐을 때 재입력을 강요하지 않기 위해),
-    // 노출만 지금 등급으로 판단한다 — 만료·강등되면 다음 조회부터 저절로 가려진다.
-    // 관리자 등록(ADMIN_EXEMPT)은 쓰기 한도와 마찬가지로 노출에서도 면제한다.
-    private boolean videoVisibleToPublic(CompanyAggregate aggregate) {
-        CompanySubscription subscription = aggregate.subscription();
-        return subscription.isExempt()
-                || gradePolicyRegistry.of(subscription.effectiveGrade()).videoAllowed();
+        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe, false);
     }
 
     // 소유자 전용 상세: 요청자가 해당 회사의 멤버여야 한다. 삭제된 회사도 소유자에게는 보인다.
@@ -202,7 +193,7 @@ public class CompanyQueryService {
         }
 
         CompanyAggregate aggregate = aggregateLoader.load(company);
-        return CompanyDetailResponse.from(aggregate, videoVisibleToPublic(aggregate));
+        return CompanyDetailResponse.from(aggregate);
     }
 
     // 관리자 상세: 상태(삭제/미연동 등) 무관하게 전체를 본다. (권한 검증은 컨트롤러 @PreAuthorize 가 담당)
@@ -211,7 +202,7 @@ public class CompanyQueryService {
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
 
         CompanyAggregate aggregate = aggregateLoader.load(company);
-        return CompanyDetailResponse.from(aggregate, videoVisibleToPublic(aggregate));
+        return CompanyDetailResponse.from(aggregate);
     }
 
     // 소유자 전용 구독 조회: 요청자가 해당 회사의 멤버여야 한다. 접근제어는 getOwnerView 와 동일하게 미러한다.

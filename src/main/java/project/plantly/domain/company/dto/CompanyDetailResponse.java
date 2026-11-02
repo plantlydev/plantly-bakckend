@@ -19,15 +19,13 @@ public record CompanyDetailResponse(
         ManagementMeta meta
 ) {
 
-    // videoVisibleToPublic = 이 회사의 등급이 동영상 공개를 허용하는지. 소유자/관리자 뷰는 이 값과 무관하게
-    // 저장된 videoUrl 을 그대로 받고(자기 데이터라 가릴 이유가 없다), 이 플래그는 meta 로만 내려간다.
-    public static CompanyDetailResponse from(CompanyAggregate aggregate, boolean videoVisibleToPublic) {
+    public static CompanyDetailResponse from(CompanyAggregate aggregate) {
         return new CompanyDetailResponse(
                 // 소유자/관리자 뷰는 관리 목적이라 개인화(좋아요/즐겨찾기 상태)를 담지 않는다.
                 // 마지막 true = 꺼진 항목도 전부 싣는다. 관리 화면은 "무엇이 저장돼 있고 그중 무엇이 지금
                 // 공개되지 않는가"를 보여줘야 하므로, 공개 뷰처럼 지워버리면 소유자가 사라진 줄 안다.
-                CompanyPublicResponse.from(aggregate, false, false, true, true),
-                ManagementMeta.from(aggregate, videoVisibleToPublic));
+                CompanyPublicResponse.from(aggregate, false, false, true),
+                ManagementMeta.from(aggregate));
     }
 
     // 소유자/관리자에게만 보이는 내부·운영 메타데이터.
@@ -48,9 +46,8 @@ public record CompanyDetailResponse(
             boolean deleted,
             CompanyVisibility visibility,   // 공개 범위(PUBLIC/PRIVATE). 소유자/관리자만 보는 운영 메타.
 
-            // 저장된 videoUrl 이 방문자에게도 보이는지. false = 저장은 돼 있지만 등급이 낮아 공개 뷰에서 가려진 상태.
-            // 이게 없으면 소유자는 자기 화면에서 동영상이 재생되니 잘 노출되고 있다고 오해한다.
-            // 화면은 자물쇠 배지 + 업그레이드 안내를 띄우는 자리로 쓴다. (등급 자체는 별도 구독 조회 API 가 내려준다)
+            // 저장된 videoUrl 이 방문자에게도 보이는지. 등급 게이트가 폐지되어 항상 true 다.
+            // 프론트가 아직 읽고 있어 계약 정리(구독 API 제거) 때 함께 뺀다.
             boolean videoVisibleToPublic,
             // 대표 레퍼런스의 이미지 전부(꺼진 것 포함, displayOrder 순). profile.representativeReference 는 공개 상세처럼
             // 표지 한 장(thumbnailUrl)만 준다 — 레퍼런스 수정은 전체 교체(PUT)라 수정 화면이 이 목록으로 채워야
@@ -59,7 +56,7 @@ public record CompanyDetailResponse(
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        public static ManagementMeta from(CompanyAggregate aggregate, boolean videoVisibleToPublic) {
+        public static ManagementMeta from(CompanyAggregate aggregate) {
             Company c = aggregate.company();
             Long ownerUserId = aggregate.ownerUserId();   // OWNER 멤버 없음(관리자 대신등록·미연동) → null
             return new ManagementMeta(
@@ -77,7 +74,7 @@ public record CompanyDetailResponse(
                     c.isSpotlight(),
                     c.isDeleted(),
                     c.getVisibility(),
-                    videoVisibleToPublic,
+                    true,
                     aggregate.representativeReferenceImages().stream().map(GalleryImageResponse::from).toList(),
                     c.getCreatedAt(),
                     c.getUpdatedAt());

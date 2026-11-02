@@ -146,7 +146,7 @@ public class CompanyService {
                 && companyRepository.existsByBusinessNumberAndDeletedFalse(company.getBusinessNumber())) {
             throw new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
         }
-        CompanyPolicyView view = CompanyPolicyView.forCreate(company, request, subscription);
+        CompanyPolicyView view = CompanyPolicyView.forCreate(company, request);
         registrationPolicies.forEach(policy -> policy.apply(view));
 
         // flush 로 INSERT 를 지금 터뜨려 활성 부분 유니크 인덱스 위반을 여기서 잡는다.
