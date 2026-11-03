@@ -13,7 +13,6 @@ import project.plantly.domain.company.entity.Company;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyMemberRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.repository.CompanySubscriptionRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.companyTest.support.CompanyVerificationFixture;
 import project.plantly.domain.company.entity.CompanyVerification;
@@ -46,7 +45,6 @@ class CompanyUpdateServiceTest {
 
     @Mock CompanyRepository companyRepository;
     @Mock CompanyMemberRepository companyMemberRepository;
-    @Mock CompanySubscriptionRepository companySubscriptionRepository;
     @Mock CompanyChildWriter childWriter;
     @Mock CompanyLinkWriter linkWriter;
     @Mock CompanySearchDocumentWriter searchDocumentWriter;
@@ -59,7 +57,7 @@ class CompanyUpdateServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CompanyUpdateService(companyRepository, companyMemberRepository, companySubscriptionRepository,
+        service = new CompanyUpdateService(companyRepository, companyMemberRepository,
                 verificationRepository, childWriter, linkWriter, searchDocumentWriter);
     }
 

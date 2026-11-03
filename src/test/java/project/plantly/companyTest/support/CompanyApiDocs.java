@@ -451,61 +451,6 @@ public class CompanyApiDocs {
         };
     }
 
-    // 소유자 구독 조회 응답(ApiResponse<CompanySubscriptionResponse>). 회사 데이터와 섞지 않은 구독 단독 정보.
-    public static FieldDescriptor[] companySubscriptionResponseFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                fieldWithPath("data.companyId").type(JsonFieldType.NUMBER).description("구독 주체(회사) ID"),
-                fieldWithPath("data.companyName").type(JsonFieldType.STRING).description("구독 주체(회사) 이름"),
-                fieldWithPath("data.grade").type(JsonFieldType.STRING).description("계약(저장) 등급: FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("data.effectiveGrade").type(JsonFieldType.STRING).description("지금 유효한 등급 (체험/만료 반영, 정책이 실제 참조하는 값). 만료 시 FREE 로 강등됨"),
-                fieldWithPath("data.status").type(JsonFieldType.STRING).description("구독 상태: ACTIVE(정상), TRIAL(체험), ADMIN_EXEMPT(관리자 등록·한도 면제)"),
-                fieldWithPath("data.startedAt").type(JsonFieldType.STRING).description("구독 시작일 (yyyy-MM-dd)"),
-                fieldWithPath("data.expiresAt").type(JsonFieldType.STRING).optional().description("구독 만료일 (yyyy-MM-dd, null = 무기한)"),
-                // 한도를 구독 응답에 싣는 이유: 수정 폼이 한도를 알 방법이 여기뿐이다. 등급 이름만 주면
-                // 프론트가 등급→한도 표를 따로 들게 되고, 표를 고칠 때 두 곳이 어긋난다.
-                // 계약 등급이 아니라 effectiveGrade 기준이다 — 정책이 실제로 참조하는 값이 그쪽이다.
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER)
-                        .description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER)
-                        .description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER)
-                        .description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN)
-                        .description("동영상 공개 노출 가능 여부. 저장은 등급과 무관하게 허용되므로, false 면 입력란을 감추거나 자물쇠 안내를 붙인다")
-        };
-    }
-
-    // 관리자 구독 조회 응답(ApiResponse<AdminCompanySubscriptionResponse>). 사용자용 + 감사 타임스탬프.
-    public static FieldDescriptor[] adminCompanySubscriptionResponseFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                fieldWithPath("data.companyId").type(JsonFieldType.NUMBER).description("구독 주체(회사) ID"),
-                fieldWithPath("data.companyName").type(JsonFieldType.STRING).description("구독 주체(회사) 이름"),
-                fieldWithPath("data.grade").type(JsonFieldType.STRING).description("계약(저장) 등급: FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("data.effectiveGrade").type(JsonFieldType.STRING).description("지금 유효한 등급 (체험/만료 반영, 정책이 실제 참조하는 값). 만료 시 FREE 로 강등됨"),
-                fieldWithPath("data.status").type(JsonFieldType.STRING).description("구독 상태: ACTIVE(정상), TRIAL(체험), ADMIN_EXEMPT(관리자 등록·한도 면제)"),
-                fieldWithPath("data.startedAt").type(JsonFieldType.STRING).description("구독 시작일 (yyyy-MM-dd)"),
-                fieldWithPath("data.expiresAt").type(JsonFieldType.STRING).optional().description("구독 만료일 (yyyy-MM-dd, null = 무기한)"),
-                fieldWithPath("data.createdAt").type(JsonFieldType.STRING).description("구독 생성 시각 (감사용)"),
-                fieldWithPath("data.updatedAt").type(JsonFieldType.STRING).description("구독 최종 수정 시각 (감사용)"),
-                // 한도는 행위자가 아니라 회사의 구독이 정한다 — 관리자 수정도 같은 한도에 걸리므로 수정 화면이 이 값으로 막는다.
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER).description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER).description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER).description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN).description("동영상 공개 노출 가능 여부")
-        };
-    }
-
-    // 관리자 구독 수정 요청(AdminSubscriptionUpdateRequest). 팝업이 세 필드를 항상 채워 보내는 full-replace.
-    public static FieldDescriptor[] adminSubscriptionUpdateRequestFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("grade").type(JsonFieldType.STRING).description("변경할 등급 (필수): FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("status").type(JsonFieldType.STRING).description("변경할 상태 (필수): ACTIVE, TRIAL, ADMIN_EXEMPT"),
-                fieldWithPath("expiresAt").type(JsonFieldType.STRING).optional().description("만료일 (yyyy-MM-dd). null = 무기한(만료 없음). startedAt 은 수정하지 않는다")
-        };
-    }
-
     // 공개 상세 조회 응답(ApiResponse<CompanyPublicResponse>). data 가 곧 공개 프로필이다.
     public static FieldDescriptor[] companyPublicResponseFields() {
         return concat(
