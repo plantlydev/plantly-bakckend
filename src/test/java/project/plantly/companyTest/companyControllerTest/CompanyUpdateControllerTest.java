@@ -303,7 +303,7 @@ public class CompanyUpdateControllerTest {
                 .andDo(document("company-update-categories",
                         pathParameters(parameterWithName("id").description("회사 ID")),
                         requestFields(CompanyApiDocs.replaceListRequestFields(
-                                "교체할 카테고리 ID 목록 (등급별 개수 제한, 빈 배열이면 전부 비움)")),
+                                "교체할 카테고리 ID 목록 (최대 10개, 빈 배열이면 전부 비움)")),
                         responseFields(CompanyApiDocs.okResponseFields())));
 
         verify(companyUpdateService).replaceCategoriesByUser(eq(9L), eq(7L), any());
@@ -342,6 +342,56 @@ public class CompanyUpdateControllerTest {
                 .andExpect(jsonPath("$.error").value("연락처는 현재 1건만 등록할 수 있습니다."))
                 .andDo(document("company-update-contacts-limit-error",
                         responseFields(CompanyApiDocs.errorResponseFields())));
+    }
+
+    // 컬렉션 개수 한도는 서비스 정책이 아니라 요청 DTO 의 @Size(CompanyConstraints 의 *_CEILING) 가 건다.
+    // 서비스에 닿기 전에 끊기는지(위임이 일어나지 않는지)까지 본다 — 서비스 쪽에는 더 이상 한도 검사가 없다.
+    @Test
+    @DisplayName("카테고리를 10개 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
+    void replaceCategories_overCeiling_badRequest() throws Exception {
+        authenticate(7L, UserRole.MEMBER);
+
+        mockMvc.perform(put("/api/v1/companies/{id}/categories", 9L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[1,2,3,4,5,6,7,8,9,10,11]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(companyUpdateService, never()).replaceCategoriesByUser(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("상세 이미지를 30장 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
+    void replaceGalleryImages_overCeiling_badRequest() throws Exception {
+        authenticate(7L, UserRole.MEMBER);
+        String images = java.util.stream.IntStream.rangeClosed(1, 31)
+                .mapToObj(i -> "{\"imageUrl\":\"https://cdn/" + i + ".png\",\"imageType\":\"DETAIL\"}")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+
+        mockMvc.perform(put("/api/v1/companies/{id}/images", 9L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(images))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(companyUpdateService, never()).replaceGalleryImagesByUser(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("레퍼런스 1건의 이미지를 10장 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
+    void replaceReferences_imagesOverCeiling_badRequest() throws Exception {
+        authenticate(7L, UserRole.MEMBER);
+        String urls = java.util.stream.IntStream.rangeClosed(1, 11)
+                .mapToObj(i -> "\"https://cdn/r" + i + ".png\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+
+        mockMvc.perform(put("/api/v1/companies/{id}/references", 9L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[{\"projectTitle\":\"p\",\"imageUrls\":" + urls + "}]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(companyUpdateService, never()).replaceReferencesByUser(any(), any(), any());
     }
 
     @AfterEach
