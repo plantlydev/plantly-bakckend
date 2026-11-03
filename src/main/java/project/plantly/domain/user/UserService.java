@@ -7,12 +7,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.plantly.domain.company.dto.OwnerSubscriptionSummary;
-import project.plantly.domain.company.service.CompanyQueryService;
 import project.plantly.domain.user.dto.request.SignUpRequest;
 import project.plantly.domain.user.dto.request.UpdateProfileRequest;
 import project.plantly.domain.user.dto.response.AdminUserListResponse;
-import project.plantly.domain.user.dto.response.AdminUserRow;
 import project.plantly.domain.user.dto.response.UserDetailResponse;
 import project.plantly.domain.user.dto.response.ProfileResponse;
 import project.plantly.domain.user.exception.UserErrorCode;
@@ -21,9 +18,6 @@ import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.PageResponse;
 import project.plantly.global.exception.BusinessException;
 
-import java.util.List;
-import java.util.Map;
-
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -31,8 +25,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final QUserRepository qUserRepository;
-    // 관리자 유저 목록에 '소유 회사 구독' 배지를 파생해 붙이기 위한 회사 도메인 조회(읽기 전용, 단방향 의존).
-    private final CompanyQueryService companyQueryService;
 
     //회원가입
     public void createUser (SignUpRequest request){
@@ -98,17 +90,9 @@ public class UserService {
     @Transactional(readOnly = true)
     public PageResponse<AdminUserListResponse> getUserListForAdmin (Pageable pageable){
 
-        Page<AdminUserRow> rows = qUserRepository.getAdminUsers(pageable);
+        Page<AdminUserListResponse> users = qUserRepository.getAdminUsers(pageable);
 
-        // 이 페이지 유저들의 '소유 회사 구독' 배지를 한 번에 배치 조회해 병합한다(소유 회사 없으면 null).
-        List<Long> userIds = rows.getContent().stream().map(AdminUserRow::userId).toList();
-        Map<Long, OwnerSubscriptionSummary> subscriptions = companyQueryService.findOwnerSubscriptionSummaries(userIds);
-
-        List<AdminUserListResponse> content = rows.getContent().stream()
-                .map(row -> AdminUserListResponse.of(row, subscriptions.get(row.userId())))
-                .toList();
-
-        return PageResponse.of(content, rows.getTotalElements(), pageable);
+        return PageResponse.of(users.getContent(), users.getTotalElements(), pageable);
     }
 
 }

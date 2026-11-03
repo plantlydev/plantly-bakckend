@@ -29,9 +29,6 @@ import project.plantly.domain.user.UserController;
 import project.plantly.domain.user.UserService;
 import project.plantly.domain.user.dto.request.SignUpRequest;
 import project.plantly.domain.user.dto.request.UpdateProfileRequest;
-import project.plantly.domain.company.dto.OwnerSubscriptionSummary;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.enums.SubscriptionStatus;
 import project.plantly.domain.user.dto.response.AdminUserListResponse;
 import project.plantly.domain.user.dto.response.ProfileResponse;
 import project.plantly.domain.user.enums.UserRole;
@@ -47,7 +44,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import project.plantly.domain.user.dto.response.UserDetailResponse;
 
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -73,7 +69,6 @@ import static org.springframework.restdocs.payload.PayloadDocumentation.response
 import static org.springframework.restdocs.payload.JsonFieldType.ARRAY;
 import static org.springframework.restdocs.payload.JsonFieldType.BOOLEAN;
 import static org.springframework.restdocs.payload.JsonFieldType.NUMBER;
-import static org.springframework.restdocs.payload.JsonFieldType.OBJECT;
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
@@ -375,8 +370,7 @@ public class UserControllerTest {
         AdminUserListResponse content = new AdminUserListResponse(
                 "target@example.com", "대상회원", "01099998888",
                 LocalDateTime.of(2026, 1, 1, 0, 0),
-                UserRole.MEMBER, UserStatus.ACTIVE,
-                new OwnerSubscriptionSummary(100L, CompanyGrade.PREMIUM, SubscriptionStatus.TRIAL, LocalDate.of(2026, 12, 31))
+                UserRole.MEMBER, UserStatus.ACTIVE
         );
 
         PageInfo pageInfo = new PageInfo(1, 30, 1, 1);
@@ -391,9 +385,6 @@ public class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].email").value("target@example.com"))
                 .andExpect(jsonPath("$.data.content[0].userRole").value("MEMBER"))
-                .andExpect(jsonPath("$.data.content[0].subscription.companyId").value(100L))
-                .andExpect(jsonPath("$.data.content[0].subscription.effectiveGrade").value("PREMIUM"))
-                .andExpect(jsonPath("$.data.content[0].subscription.status").value("TRIAL"))
                 .andExpect(jsonPath("$.data.pageInfo.pageNumber").value(1))
                 .andExpect(jsonPath("$.data.pageInfo.totalElement").value(1))
                 .andDo(document("admin-user-list",
@@ -409,11 +400,6 @@ public class UserControllerTest {
                                 fieldWithPath("data.content[].createdAt").type(STRING).description("가입 일시"),
                                 fieldWithPath("data.content[].userRole").type(STRING).description("권한 (MEMBER, ADMIN)"),
                                 fieldWithPath("data.content[].userStatus").type(STRING).description("회원 상태"),
-                                fieldWithPath("data.content[].subscription").type(OBJECT).optional().description("소유(OWNER)한 회사의 구독 요약 배지 (회사 미소유면 null). 읽기 전용 — 편집은 회사 구독으로"),
-                                fieldWithPath("data.content[].subscription.companyId").type(NUMBER).optional().description("구독 주체(회사) ID (배지 옆 수정 버튼 연결용)"),
-                                fieldWithPath("data.content[].subscription.effectiveGrade").type(STRING).optional().description("지금 유효한 등급 (만료 시 FREE 로 강등)"),
-                                fieldWithPath("data.content[].subscription.status").type(STRING).optional().description("구독 상태: ACTIVE(결제), TRIAL(체험), ADMIN_EXEMPT(면제)"),
-                                fieldWithPath("data.content[].subscription.expiresAt").type(STRING).optional().description("만료일 (yyyy-MM-dd, null = 무기한)"),
                                 fieldWithPath("data.pageInfo.pageNumber").type(NUMBER).description("현재 페이지 (1-base)"),
                                 fieldWithPath("data.pageInfo.size").type(NUMBER).description("페이지 크기"),
                                 fieldWithPath("data.pageInfo.totalElement").type(NUMBER).description("전체 건수"),

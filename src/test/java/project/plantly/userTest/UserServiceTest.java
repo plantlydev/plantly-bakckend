@@ -13,13 +13,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
-import project.plantly.domain.company.dto.OwnerSubscriptionSummary;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.enums.SubscriptionStatus;
-import project.plantly.domain.company.service.CompanyQueryService;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.dto.response.AdminUserListResponse;
-import project.plantly.domain.user.dto.response.AdminUserRow;
 import project.plantly.domain.user.repository.QUserRepository;
 import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.domain.user.UserService;
@@ -35,7 +30,6 @@ import project.plantly.global.exception.BusinessException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -58,9 +52,6 @@ public class UserServiceTest {
 
     @Mock
     private QUserRepository qUserRepository;
-
-    @Mock
-    private CompanyQueryService companyQueryService;
 
     @InjectMocks
     private UserService userService;
@@ -227,23 +218,20 @@ public class UserServiceTest {
         //       size 를 실제 데이터 양(2)에 맞춰야 total(5)이 그대로 유지된다.
         PageRequest pageable = PageRequest.of(0, 2);
 
-        AdminUserRow row1 = new AdminUserRow(
-                1L, "a@example.com", "회원A", "01011111111",
+        AdminUserListResponse user1 = new AdminUserListResponse(
+                "a@example.com", "회원A", "01011111111",
                 LocalDateTime.of(2026, 1, 2, 0, 0),
                 UserRole.MEMBER, UserStatus.ACTIVE
         );
 
-        AdminUserRow row2 = new AdminUserRow(
-                2L, "b@example.com", "회원B", "01022222222",
+        AdminUserListResponse user2 = new AdminUserListResponse(
+                "b@example.com", "회원B", "01022222222",
                 LocalDateTime.of(2026, 1, 1, 0, 0),
                 UserRole.MEMBER, UserStatus.ACTIVE
         );
 
-        PageImpl<AdminUserRow> page = new PageImpl<>(List.of(row1, row2), pageable, 5);
+        PageImpl<AdminUserListResponse> page = new PageImpl<>(List.of(user1, user2), pageable, 5);
         given(qUserRepository.getAdminUsers(pageable)).willReturn(page);
-        // 회원A 만 회사를 소유(구독 배지 있음), 회원B 는 미소유(배지 null).
-        given(companyQueryService.findOwnerSubscriptionSummaries(List.of(1L, 2L)))
-                .willReturn(Map.of(1L, new OwnerSubscriptionSummary(100L, CompanyGrade.PREMIUM, SubscriptionStatus.ACTIVE, null)));
 
         //when
         PageResponse<AdminUserListResponse> result = userService.getUserListForAdmin(pageable);
@@ -251,9 +239,6 @@ public class UserServiceTest {
         //then
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).email()).isEqualTo("a@example.com");
-        assertThat(result.getContent().get(0).subscription().effectiveGrade()).isEqualTo(CompanyGrade.PREMIUM);
-        assertThat(result.getContent().get(0).subscription().companyId()).isEqualTo(100L);
-        assertThat(result.getContent().get(1).subscription()).isNull();   // 소유 회사 없음 → 배지 null
         assertThat(result.getPageInfo().pageNumber()).isEqualTo(1);     // 1-based
         assertThat(result.getPageInfo().size()).isEqualTo(2);
         assertThat(result.getPageInfo().totalElement()).isEqualTo(5);
@@ -268,7 +253,6 @@ public class UserServiceTest {
         PageRequest pageable = PageRequest.of(0, 30);
         given(qUserRepository.getAdminUsers(pageable)).willReturn(
                 new PageImpl<>(List.of(), pageable, 0));
-        given(companyQueryService.findOwnerSubscriptionSummaries(List.of())).willReturn(Map.of());
 
         //when
         PageResponse<AdminUserListResponse> result = userService.getUserListForAdmin(pageable);

@@ -11,7 +11,6 @@ import project.plantly.domain.company.search.AdminCompanySearchCriteria;
 import project.plantly.domain.company.search.LikePatterns;
 import project.plantly.domain.company.search.dto.AdminCompanySummary;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,10 +32,6 @@ public class AdminCompanyCardRepository {
 
     private static final String FROM = " FROM company c ";
 
-    // 구독 요약 컬럼을 위한 조인. 회사당 1건(1:1)이라 행이 늘지 않고, 방어적으로 LEFT 라 구독 없는 회사도 안 빠진다.
-    // (count 쿼리에는 붙이지 않는다 — 조건이 c/company_member 만 참조하므로 회사 수는 조인 없이도 동일)
-    private static final String SUBSCRIPTION_JOIN = " LEFT JOIN company_subscription s ON s.company_id = c.id ";
-
     // 최신 등록순. id 는 안정 페이징용 tie-breaker.
     private static final String ORDER_BY = " ORDER BY c.created_at DESC, c.id DESC ";
 
@@ -54,12 +49,11 @@ public class AdminCompanyCardRepository {
 
         String where = conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
 
-        params.addValue("today", LocalDate.now()); // effective_grade 파생(만료 판정) 기준일
         params.addValue("limit", pageable.getPageSize());
         params.addValue("offset", pageable.getOffset());
 
         List<AdminCompanySummary> content = jdbc.query(
-                "SELECT " + AdminCompanyCardSql.COLUMNS + FROM + SUBSCRIPTION_JOIN + where + ORDER_BY + " LIMIT :limit OFFSET :offset",
+                "SELECT " + AdminCompanyCardSql.COLUMNS + FROM + where + ORDER_BY + " LIMIT :limit OFFSET :offset",
                 params, AdminCompanyCardSql.ROW_MAPPER);
 
         return PageableExecutionUtils.getPage(content, pageable, () -> {
