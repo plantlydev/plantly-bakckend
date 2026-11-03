@@ -15,10 +15,7 @@ import project.plantly.domain.company.dto.CompanyDraftResponse;
 import project.plantly.domain.company.dto.CompanyDraftSummary;
 import project.plantly.domain.company.dto.CompanyVerificationResponse;
 import project.plantly.domain.company.entity.CompanyVerification;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.enums.VerificationStatus;
-import project.plantly.domain.company.policy.GradePolicyRegistry;
-import project.plantly.domain.company.policy.InitialSubscriptionPolicy;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.entity.CompanyDraft;
 import project.plantly.domain.company.exception.CompanyErrorCode;
@@ -74,8 +71,7 @@ class CompanyDraftServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CompanyDraftService(draftRepository, verificationRepository, objectMapper,
-                new InitialSubscriptionPolicy(), new GradePolicyRegistry());
+        service = new CompanyDraftService(draftRepository, verificationRepository, objectMapper);
     }
 
     // 이 사용자가 이 번호로 국세청을 통과한 이력이 있다고 가정한다(초안 접근 권한의 근거).
@@ -247,9 +243,6 @@ class CompanyDraftServiceTest {
             assertThat(resumed.verificationId()).isEqualTo(123L);
             assertThat(resumed.ceoName()).isEqualTo("홍길동");
             assertThat(resumed.businessStartDate()).isEqualTo(LocalDate.of(2018, 3, 2));
-            // 발급 응답과 같은 정책에서 계산된다 — 자가등록 체험 최고등급
-            assertThat(resumed.initialGrade()).isEqualTo(CompanyGrade.ENTERPRISE);
-            assertThat(resumed.limits().maxDetailImages()).isEqualTo(30);
         }
 
         @Test

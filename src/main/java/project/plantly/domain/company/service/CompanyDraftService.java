@@ -11,11 +11,8 @@ import project.plantly.domain.company.dto.CompanyDraftSummary;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.dto.CompanyVerificationResponse;
 import project.plantly.domain.company.entity.CompanyDraft;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.enums.VerificationStatus;
 import project.plantly.domain.company.exception.CompanyErrorCode;
-import project.plantly.domain.company.policy.GradePolicyRegistry;
-import project.plantly.domain.company.policy.InitialSubscriptionPolicy;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.support.BusinessNumbers;
@@ -45,10 +42,6 @@ public class CompanyDraftService {
     private final CompanyDraftRepository draftRepository;
     private final CompanyVerificationRepository verificationRepository;
     private final ObjectMapper objectMapper;
-
-    // 이어쓰기 응답의 등급·한도 출처. 인증 발급(CompanyVerificationService)이 쓰는 것과 같은 정책이다.
-    private final InitialSubscriptionPolicy initialSubscriptionPolicy;
-    private final GradePolicyRegistry gradePolicyRegistry;
 
     // 발행에 다시 쓸 수 있는 인증 상태. 이유는 findResumableVerification 주석 참고.
     private static final Set<VerificationStatus> RESUMABLE = EnumSet.of(VerificationStatus.VERIFIED, VerificationStatus.EXPIRED);
@@ -109,17 +102,11 @@ public class CompanyDraftService {
      * 만료가 아니다({@link CompanyVerificationService#refreshIfExpired}). EXPIRED 도 같은 이유로 포함한다 — 재질의
      * 대상이고, 국세청 판정이 그사이 바뀌었으면(휴업 해제 등) 통과한다. 빠지는 것은 이미 회사에 쓰인 CONSUMED
      * 와 관리자가 회수한 REVOKED 뿐이다(둘 다 되살리는 경로가 없다).
-     *
-     * <p>등급·한도는 인증 발급 응답과 같은 정책에서 계산한다 — 발급 때 안내한 한도와 이어쓰기 때 안내하는 한도가
-     * 갈리면 안 되기 때문이다.
      */
     private CompanyVerificationResponse findResumableVerification(Long userId, String businessNumber) {
         return verificationRepository
                 .findFirstByUserIdAndBusinessNumberAndStatusInOrderByIdDesc(userId, businessNumber, RESUMABLE)
-                .map(verification -> {
-                    CompanyGrade grade = initialSubscriptionPolicy.initialGrade(verification);
-                    return CompanyVerificationResponse.from(verification, grade, gradePolicyRegistry.of(grade));
-                })
+                .map(CompanyVerificationResponse::from)
                 .orElse(null);
     }
 

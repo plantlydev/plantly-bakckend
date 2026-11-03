@@ -49,17 +49,6 @@ public class CompanyApiDocs {
                 fieldWithPath("data.businessStartDate").type(JsonFieldType.STRING).description("국세청 검증을 통과한 개업일자"),
                 fieldWithPath("data.expiresAt").type(JsonFieldType.STRING)
                         .description("인증 유효기간(발급 후 7일). 넘겨도 사용자가 할 일은 없다 — 발행 시 서버가 저장값으로 국세청에 다시 물어 갱신한다"),
-                // 등급을 인증 응답에 실는 이유: 컬렉션 입력은 회사가 생기기 전에 끝나므로, 폼이 한도를 알 방법이 여기뿐이다.
-                fieldWithPath("data.initialGrade").type(JsonFieldType.STRING)
-                        .description("이 인증으로 회사를 만들면 받게 될 등급. 국세청 인증을 직접 통과한 자가등록은 체험 최고등급으로 시작한다"),
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER)
-                        .description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER)
-                        .description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER)
-                        .description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN)
-                        .description("동영상 공개 노출 가능 여부. 저장은 등급과 무관하게 허용되므로, false 면 입력란을 감추거나 자물쇠 안내를 붙인다"),
                 fieldWithPath("code").type(JsonFieldType.STRING).optional()
                         .description("에러 코드(ErrorCode 상수명). 클라이언트는 문구가 아니라 이 값으로 분기한다. 성공 응답에는 없다"),
                 fieldWithPath("error").type(JsonFieldType.STRING).optional().description("오류 메시지 (성공 시 null)")
@@ -225,18 +214,14 @@ public class CompanyApiDocs {
                         .description("마지막 저장 시각 (\"n분 전 저장됨\" 등 표시용)"),
                 fieldWithPath("data.verification").type(JsonFieldType.OBJECT).optional()
                         .description("이 번호로 지금 발행에 쓸 인증. 사업자 인증 응답(company-verification)의 data 와 같은 모양이라 "
-                                + "재인증 없이 읽기 전용 칸과 한도를 그린다. 이어쓸 인증이 없으면(전부 회수됨) null — 사업자 인증부터 다시 받는다"),
+                                + "재인증 없이 읽기 전용 칸을 그린다. 이어쓸 인증이 없으면(전부 회수됨) null — 사업자 인증부터 다시 받는다"),
                 fieldWithPath("data.verification.verificationId").type(JsonFieldType.NUMBER).optional()
                         .description("발행 요청에 실을 인증 식별자. payload.verificationId 대신 이 값을 쓴다"),
                 fieldWithPath("data.verification.businessNumber").type(JsonFieldType.STRING).optional().description("정규화된 사업자등록번호"),
                 fieldWithPath("data.verification.ceoName").type(JsonFieldType.STRING).optional().description("국세청 검증을 통과한 대표자 성명"),
                 fieldWithPath("data.verification.businessStartDate").type(JsonFieldType.STRING).optional().description("국세청 검증을 통과한 개업일자"),
                 fieldWithPath("data.verification.expiresAt").type(JsonFieldType.STRING).optional()
-                        .description("인증 유효기간. 지나 있어도 발행 시 서버가 자동으로 다시 확인하므로 사용자에게 알릴 필요가 없다"),
-                fieldWithPath("data.verification.initialGrade").type(JsonFieldType.STRING).optional()
-                        .description("이 인증으로 회사를 만들면 받게 될 등급"),
-                fieldWithPath("data.verification.limits").type(JsonFieldType.OBJECT).optional()
-                        .description("그 등급의 입력 한도. 필드는 사업자 인증 응답의 limits 와 같다")
+                        .description("인증 유효기간. 지나 있어도 발행 시 서버가 자동으로 다시 확인하므로 사용자에게 알릴 필요가 없다")
         };
     }
 
@@ -592,8 +577,6 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "spotlight").type(JsonFieldType.BOOLEAN).description("스포트라이트 여부"),
                 fieldWithPath(p + "deleted").type(JsonFieldType.BOOLEAN).description("소프트 삭제 여부"),
                 fieldWithPath(p + "visibility").type(JsonFieldType.STRING).description("공개 범위 (PUBLIC / PRIVATE)"),
-                fieldWithPath(p + "videoVisibleToPublic").type(JsonFieldType.BOOLEAN)
-                        .description("(폐지 예정) 동영상 공개 여부. 등급 게이트가 폐지되어 항상 true"),
                 fieldWithPath(p + "representativeReferenceImages").type(JsonFieldType.ARRAY)
                         .description("대표 레퍼런스의 이미지 전부 (꺼진 것 포함, 표시 순서). profile 의 레퍼런스는 표지 한 장뿐이라,"
                                 + " 레퍼런스 전체 교체(PUT) 전에 수정 화면이 이 목록으로 채운다. 레퍼런스가 없으면 빈 배열"),

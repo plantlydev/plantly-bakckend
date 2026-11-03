@@ -32,13 +32,11 @@ import project.plantly.domain.company.dto.CompanyDraftResponse;
 import project.plantly.domain.company.dto.CompanyDraftSummary;
 import project.plantly.domain.company.dto.CompanyShowcaseResponse;
 import project.plantly.domain.company.dto.CompanyStatsResponse;
-import project.plantly.domain.company.dto.GradeLimits;
 import project.plantly.domain.company.dto.CompanyReverificationRequest;
 import project.plantly.domain.company.dto.CompanyReverificationResponse;
 import project.plantly.domain.company.dto.CompanyVerificationRequest;
 import project.plantly.domain.company.dto.CompanyVerificationResponse;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.search.CompanySearchCriteria;
 import project.plantly.domain.company.enums.CompanyVisibility;
@@ -147,10 +145,7 @@ public class CompanyControllerTest {
         CompanyVerificationRequest request = CompanyCreateRequestSamples.verificationRequest();
         given(companyVerificationService.verify(eq(7L), any(CompanyVerificationRequest.class)))
                 .willReturn(new CompanyVerificationResponse(99L, "1234567890", "김대표",
-                        LocalDate.of(2020, 1, 15), LocalDateTime.of(2026, 7, 19, 12, 30),
-                        // 인증에 성공한 자가등록은 체험 최고등급으로 시작하고, 등록 폼은 그 한도로 입력을 연다.
-                        CompanyGrade.ENTERPRISE,
-                        new GradeLimits(10, 30, 10, true)));
+                        LocalDate.of(2020, 1, 15), LocalDateTime.of(2026, 7, 19, 12, 30)));
         authenticate(7L, UserRole.MEMBER);
 
         mockMvc.perform(post("/api/v1/companies/verification")
@@ -351,8 +346,7 @@ public class CompanyControllerTest {
     @DisplayName("재진입 시 초안 조회는 저장했던 폼 상태(payload)·마지막 저장 시각·이어쓸 인증을 반환한다")
     void getDraft_success() throws Exception {
         CompanyVerificationResponse verification = new CompanyVerificationResponse(
-                123L, BUSINESS_NUMBER, "홍길동", LocalDate.of(2018, 3, 2), LocalDateTime.of(2026, 7, 27, 9, 0),
-                CompanyGrade.ENTERPRISE, new GradeLimits(10, 30, 10, true));
+                123L, BUSINESS_NUMBER, "홍길동", LocalDate.of(2018, 3, 2), LocalDateTime.of(2026, 7, 27, 9, 0));
         CompanyDraftResponse response = new CompanyDraftResponse(
                 CompanyCreateRequestSamples.myFull(), LocalDateTime.of(2026, 7, 23, 10, 0), verification);
         given(companyDraftService.get(7L, BUSINESS_NUMBER)).willReturn(response);
@@ -365,7 +359,6 @@ public class CompanyControllerTest {
                 .andExpect(jsonPath("$.data.payload.companyName").value("플랜틀리"))
                 .andExpect(jsonPath("$.data.updatedAt").value("2026-07-23T10:00:00"))
                 .andExpect(jsonPath("$.data.verification.verificationId").value(123L))
-                .andExpect(jsonPath("$.data.verification.limits.maxDetailImages").value(30))
                 // payload 내부 필드는 회사 등록 요청과 동일하므로 relaxed 로 봉투·저장시각만 문서화한다(중복 방지).
                 .andDo(document("company-draft-get",
                         pathParameters(parameterWithName("businessNumber").description(
