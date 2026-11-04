@@ -72,7 +72,7 @@ class CompanyDraftAcceptanceTest extends AcceptanceTest {
         }
 
         @Test
-        @DisplayName("조회는 이어쓸 인증(식별자·신원·등급·한도)을 함께 준다 — 인증 식별자를 잃은 기기도 재인증 없이 이어 쓴다")
+        @DisplayName("조회는 이어쓸 인증(식별자·신원)을 함께 준다 — 인증 식별자를 잃은 기기도 재인증 없이 이어 쓴다")
         void get_includesResumableVerification() {
             Session owner = signUpMember("draft-resume@example.com");
             long vid = seeder.seedUsableVerification(owner.userId());

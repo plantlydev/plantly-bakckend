@@ -53,7 +53,7 @@ import java.util.stream.Stream;
  * <p>{@code ImageType} 은 (1)부터 걸린다. 필수 필드이긴 하지만 등록 폼의 갤러리에서 합법값이
  * {@code DETAIL} 하나뿐이라({@code GalleryImageTypePolicy}) 선택지가 아니라 상수다.
  *
- * <p>회사 등급·구독 상태·인증 그룹·대륙은 애초에 고르는 값이 아니라 받아서 그리는 값이다. 뒤의 둘은
+ * <p>인증 그룹·대륙은 애초에 고르는 값이 아니라 받아서 그리는 값이다. 둘 다
  * 그 문구를 프론트가 소유하기로 이미 정해져 있다({@code CertificationPublicResponse}/
  * {@code CountryPublicResponse} 주석 — 배제 케이스 (2)·(3)). 나중에 그 결정을 뒤집는다면 두 주석을
  * 함께 고쳐야 한다.

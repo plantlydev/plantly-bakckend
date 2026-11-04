@@ -67,7 +67,6 @@ class MetaOptionsControllerTest {
                 .andExpect(jsonPath("$.data.trlLevel[2].value").value("GLOBAL_STANDARD"))
                 .andExpect(jsonPath("$.data.pricingType[1].label").value("상담 후 결정"))
                 // 카탈로그에 없는 enum 은 나오지 않는다 — 라벨의 주인이 프론트인 값들(OptionCatalog 주석).
-                .andExpect(jsonPath("$.data.companyGrade").doesNotExist())
                 .andExpect(jsonPath("$.data.certificationType").doesNotExist())
                 .andDo(document("meta-options",
                         responseFields(
@@ -76,7 +75,7 @@ class MetaOptionsControllerTest {
                                 fieldWithPath("data").type(JsonFieldType.OBJECT)
                                         .description("선택지 카탈로그. 키는 요청 DTO 의 필드 이름과 같아서, 제약 조회의 "
                                                 + "fields[].field · 검증 실패의 errors[].field 와 같은 어휘로 이어 붙일 수 있다. "
-                                                + "사용자가 고르지 않는 값(등급·구독상태·인증그룹·대륙)은 여기 실리지 않는다"),
+                                                + "사용자가 고르지 않는 값(인증그룹·대륙)은 여기 실리지 않는다"),
                                 fieldWithPath("data.trlLevel").type(JsonFieldType.ARRAY)
                                         .description("기술성숙도 선택지. 성숙도 오름차순이라 이 순서가 곧 노출 순서다"),
                                 fieldWithPath("data.trlLevel[].value").type(JsonFieldType.STRING)

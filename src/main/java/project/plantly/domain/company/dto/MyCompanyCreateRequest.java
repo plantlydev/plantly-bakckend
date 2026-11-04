@@ -81,9 +81,8 @@ public record MyCompanyCreateRequest(
         @Valid
         @Size(max = CompanyConstraints.CONTACTS_MAX, message = "연락처는 현재 1건만 등록할 수 있습니다.")
         List<@NotNull(message = "연락처 항목은 비어 있을 수 없습니다.") ContactRequest> contacts,
-        // 상세 이미지 장수는 등급이 정한다(DetailImageLimitPolicy). 여기 상한은 최고 등급값을 둔 천장이다.
         @Valid
-        @Size(max = CompanyConstraints.DETAIL_IMAGES_CEILING, message = "상세 이미지는 30장을 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.")
         List<@NotNull(message = "이미지 항목은 비어 있을 수 없습니다.") ImageRequest> images,
         @Valid
         @Size(max = CompanyConstraints.REFERENCES_MAX, message = "프로젝트 레퍼런스는 현재 1건만 등록할 수 있습니다.")
@@ -102,8 +101,7 @@ public record MyCompanyCreateRequest(
                 String> tagNames,
 
         // ===== 링크(M:N) 엔티티 =====
-        // 카테고리 개수는 등급이 정한다(CategoryLimitPolicy). 여기 상한은 천장이다.
-        @Size(max = CompanyConstraints.CATEGORIES_CEILING, message = "카테고리는 10개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.")
         List<@NotNull(message = "카테고리 항목은 비어 있을 수 없습니다.") Long> categoryIds,
         // @NotNull 은 리스트가 아니라 '원소'에 붙는다 — 인증을 하나도 고르지 않은 "해당 사항 없음"은
         // 정상 상태라 리스트 자체는 null/빈 배열이어도 된다. 막아야 하는 건 [null] 같은 깨진 원소뿐이다.

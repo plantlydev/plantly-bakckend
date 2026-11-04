@@ -50,7 +50,7 @@ public class CompanyAggregateSeeder {
     public static final String BUSINESS_NUMBER = "1234567890";
     public static final LocalDate ESTABLISHMENT_DATE = LocalDate.of(2018, 3, 2);
     public static final String BRAND_COLOR = "#2E7D32";
-    // 시드 회사는 FREE 인데도 동영상을 갖고 있다 — 저장은 등급 무관, 노출만 등급이 정한다는 계약을 데이터로 세운다.
+    // 동영상은 노출 게이트 없이 저장값 그대로 공개된다(CompanyQueryAcceptanceTest 가 확인).
     public static final String VIDEO_URL = "https://youtu.be/demo";
     // 로고와 다른 URL 이어야 한다 — 카드/상세가 두 자리를 뒤바꿔 채우면 단언이 잡아낸다.
     public static final String COVER_IMAGE_URL = "https://cdn.plantly.test/cover.png";

@@ -60,7 +60,7 @@ public class CompanyChildWriter {
     }
 
     // 갤러리(회사 직속) 이미지만 교체한다. 프로젝트 레퍼런스 이미지는 replaceReferences 가 관리한다.
-    // 구조 불변식: 갤러리에는 DETAIL 타입만 허용한다(GalleryImageTypePolicy 와 동일 규칙). 등급 한도는 후속 과제.
+    // 구조 불변식: 갤러리에는 DETAIL 타입만 허용한다(GalleryImageTypePolicy 와 동일 규칙). 장수 상한은 요청 DTO 의 @Size 가 건다.
     public void replaceGalleryImages(Company company, List<CompanyCreateRequest.ImageRequest> images) {
         requireGalleryImagesDetailOnly(images);
         imageRepository.deleteByCompanyIdAndProjectReferenceIsNull(company.getId());

@@ -344,11 +344,11 @@ public class CompanyUpdateControllerTest {
                         responseFields(CompanyApiDocs.errorResponseFields())));
     }
 
-    // 컬렉션 개수 한도는 서비스 정책이 아니라 요청 DTO 의 @Size(CompanyConstraints 의 *_CEILING) 가 건다.
+    // 컬렉션 개수 한도는 서비스 정책이 아니라 요청 DTO 의 @Size(CompanyConstraints 의 개수 상한) 가 건다.
     // 서비스에 닿기 전에 끊기는지(위임이 일어나지 않는지)까지 본다 — 서비스 쪽에는 더 이상 한도 검사가 없다.
     @Test
     @DisplayName("카테고리를 10개 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
-    void replaceCategories_overCeiling_badRequest() throws Exception {
+    void replaceCategories_overMax_badRequest() throws Exception {
         authenticate(7L, UserRole.MEMBER);
 
         mockMvc.perform(put("/api/v1/companies/{id}/categories", 9L)
@@ -362,7 +362,7 @@ public class CompanyUpdateControllerTest {
 
     @Test
     @DisplayName("상세 이미지를 30장 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
-    void replaceGalleryImages_overCeiling_badRequest() throws Exception {
+    void replaceGalleryImages_overMax_badRequest() throws Exception {
         authenticate(7L, UserRole.MEMBER);
         String images = java.util.stream.IntStream.rangeClosed(1, 31)
                 .mapToObj(i -> "{\"imageUrl\":\"https://cdn/" + i + ".png\",\"imageType\":\"DETAIL\"}")
@@ -379,7 +379,7 @@ public class CompanyUpdateControllerTest {
 
     @Test
     @DisplayName("레퍼런스 1건의 이미지를 10장 넘게 교체하면 400 을 반환하고 서비스에 위임하지 않는다")
-    void replaceReferences_imagesOverCeiling_badRequest() throws Exception {
+    void replaceReferences_imagesOverMax_badRequest() throws Exception {
         authenticate(7L, UserRole.MEMBER);
         String urls = java.util.stream.IntStream.rangeClosed(1, 11)
                 .mapToObj(i -> "\"https://cdn/r" + i + ".png\"")

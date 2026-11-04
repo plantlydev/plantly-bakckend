@@ -88,10 +88,8 @@ public record CompanyCreateRequest(
         @Valid
         @Size(max = CompanyConstraints.CONTACTS_MAX, message = "연락처는 현재 1건만 등록할 수 있습니다.")
         List<@NotNull(message = "연락처 항목은 비어 있을 수 없습니다.") ContactRequest> contacts,
-        // 상세 이미지 장수는 등급이 정한다(DetailImageLimitPolicy). 여기 상한은 최고 등급값을 천장으로 둔 것 —
-        // CompanyConstraints 의 CEILING 주석 참고.
         @Valid
-        @Size(max = CompanyConstraints.DETAIL_IMAGES_CEILING, message = "상세 이미지는 30장을 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.")
         List<@NotNull(message = "이미지 항목은 비어 있을 수 없습니다.") ImageRequest> images,
         @Valid
         @Size(max = CompanyConstraints.REFERENCES_MAX, message = "프로젝트 레퍼런스는 현재 1건만 등록할 수 있습니다.")
@@ -110,8 +108,7 @@ public record CompanyCreateRequest(
                 String> tagNames,
 
         // ===== 링크(M:N) 엔티티 - 기존 마스터 ID 참조 =====
-        // 카테고리 개수는 등급이 정한다(CategoryLimitPolicy). 여기 상한은 천장이다.
-        @Size(max = CompanyConstraints.CATEGORIES_CEILING, message = "카테고리는 10개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.")
         List<@NotNull(message = "카테고리 항목은 비어 있을 수 없습니다.") Long> categoryIds,
         // 인증만 평면 ID 가 아니다 — '기타' 를 고르면 인증명을 직접 적어 보내야 하고, 그건 마스터 ID 옆에
         // 붙어야 어느 항목의 이름인지가 정해진다. 일반 인증은 customName 없이 ID 만 담으면 된다.
@@ -180,7 +177,7 @@ public record CompanyCreateRequest(
             @Size(max = CompanyConstraints.PERIOD_MAX, message = "수행 기간은 50자를 넘을 수 없습니다.")
             String period,
             // 레퍼런스 1건당 이미지 장수 한도(모든 회사 공통).
-            @Size(max = CompanyConstraints.REFERENCE_IMAGES_CEILING, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.REFERENCE_IMAGES_MAX, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.")
             List<@NotBlank(message = "이미지 주소는 비어 있을 수 없습니다.")
                     @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.")
                     String> imageUrls

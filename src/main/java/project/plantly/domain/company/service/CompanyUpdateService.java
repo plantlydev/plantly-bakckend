@@ -36,7 +36,7 @@ public class CompanyUpdateService {
     private final CompanyLinkWriter linkWriter;
     private final CompanySearchDocumentWriter searchDocumentWriter;
 
-    // 컬렉션 개수 한도는 요청 DTO 의 @Size(CompanyConstraints 의 *_CEILING) 가 모든 회사에 똑같이 건다.
+    // 컬렉션 개수 한도는 요청 DTO 의 @Size(CompanyConstraints 의 개수 상한) 가 모든 회사에 똑같이 건다.
     // 서비스 계층에서 다시 검사하는 정책은 없다(등급별 차등이 폐지되어 행위자·회사 무관하게 같은 한도다).
 
     // ===== 기본 정보 부분 수정 =====

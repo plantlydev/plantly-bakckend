@@ -6,13 +6,11 @@ package project.plantly.domain.company.dto;
  * <p>여기 모으는 이유는 경로마다 제약이 갈리면 등록에서 막은 값이 수정으로 들어오기 때문이다.
  * 애너테이션 속성은 컴파일 타임 상수만 받으므로 상수로 둔다.
  *
- * <p>세 종류가 섞여 있으니 구분해서 읽어야 한다:
+ * <p>두 종류가 섞여 있으니 구분해서 읽어야 한다:
  * <ul>
  *   <li><b>길이</b> — 대부분 엔티티 컬럼이 {@code varchar(255)}(ddl-auto 기본값)라는 사실에서 온다.
  *       이 상한이 없으면 초과 입력이 검증이 아니라 영속화 시점에 터진다.</li>
- *   <li><b>개수</b> — 화면이 감당할 양. 등급과 무관한 절대 천장이다.</li>
- *   <li><b>등급 천장</b> — 아래 CEILING 셋. 등급별 실제 한도는 GradePolicy 가 소유하고,
- *       이 값은 그중 최고 등급값이다. 자세한 것은 각 상수 주석 참고.</li>
+ *   <li><b>개수</b> — 화면이 감당할 양. 등록 경로(관리자/자가)·회사와 무관하게 모두에게 같은 한도다.</li>
  * </ul>
  */
 public final class CompanyConstraints {
@@ -91,21 +89,9 @@ public final class CompanyConstraints {
     public static final int CONTACTS_MAX = 1;
     public static final int REFERENCES_MAX = 1;
 
-    // ===== 등급 천장 =====
-    //
-    // 아래 셋은 등급에 따라 실제 한도가 달라지는 컬렉션의 '절대 천장'이다. 등급별 한도는 여전히
-    // GradePolicy/GradePolicyRegistry 가 소유하고 서비스 계층 정책이 강제한다 — 여기 값은 그중
-    // 최고 등급값이라, 어떤 등급이든 이 수를 넘을 수 없다는 뜻일 뿐 등급 한도를 대신하지 않는다.
-    //
-    // DTO 에 천장을 두는 이유: 명백한 남용(카테고리 5000개)을 서비스까지 들여보내지 않기 위해서다.
-    // 부작용 하나는 감수한 것이다 — 관리자 등록 회사(ADMIN_EXEMPT)는 등급 한도에서 면제되지만
-    // 이 천장은 지킨다. 면제의 의미가 "무제한" 이 아니라 "최고등급 대우" 가 된다.
-    //
-    // 같은 숫자가 두 곳(여기와 레지스트리)에 사는 상태라, 레지스트리의 최고값이 이 천장을 넘지 않는지
-    // CompanyConstraintsCeilingTest 가 지킨다. 그 테스트가 없으면 나중에 등급 정책을 올렸을 때
-    // 이 천장이 조용히 먼저 막는다.
-
-    public static final int CATEGORIES_CEILING = 10;
-    public static final int DETAIL_IMAGES_CEILING = 30;
-    public static final int REFERENCE_IMAGES_CEILING = 10;
+    // 카테고리·상세 이미지·레퍼런스 이미지. 예전에는 등급마다 한도가 달라 여기 값은 그중 최고값(천장)이었지만,
+    // 등급 제도가 폐지되어 이제 이 값이 곧 모두의 한도다. 폼은 제약 조회 API(maxItems)로 같은 값을 받는다.
+    public static final int CATEGORIES_MAX = 10;
+    public static final int DETAIL_IMAGES_MAX = 30;
+    public static final int REFERENCE_IMAGES_MAX = 10;
 }

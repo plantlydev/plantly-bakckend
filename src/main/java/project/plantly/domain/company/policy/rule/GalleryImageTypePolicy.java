@@ -9,8 +9,7 @@ import project.plantly.global.exception.BusinessException;
 
 // 정책(구조 검증): 회사 직속 갤러리(images)에는 상세 이미지(ImageType.DETAIL)만 허용한다.
 // PROJECT 이미지는 references 경로로만 들어와야 하므로, images 에 DETAIL 외(또는 null) 타입이 섞이면 거부한다.
-// 이를 통해 DetailImageLimitPolicy 의 DETAIL-only 카운팅이 타입 우회로 무력화되는 것을 막는다.
-// 등급과 무관한 구조 검증이므로 면제(관리자 등록) 여부와 상관없이 전원 적용한다.
+// 구조 검증이라 관리자 등록·자가등록 모두에 똑같이 적용한다.
 // 수정 경로에서는 CompanyChildWriter.replaceGalleryImages 가 동일 규칙을 강제하므로 CompanyMutationPolicy 를 달지 않는다(등록 전용).
 @Component
 public class GalleryImageTypePolicy implements CompanyRegistrationPolicy {
