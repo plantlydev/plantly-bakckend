@@ -513,9 +513,9 @@ public class CompanyControllerTest {
     @Test
     @DisplayName("메인 화면 노출 영역은 인증 없이 스팟라이트·추천·최근 등록 세 레일을 반환한다 (페이지가 아니라 고정 리스트)")
     void getShowcase_public_success() throws Exception {
-        // 스팟라이트 카드의 spotlight=false 가 핵심 — 요금제 자격으로 노출되는 회사는 pin 플래그가 꺼져 있다.
-        CompanySummary paid = new CompanySummary(1L, "유료노출사", "정밀 부품",
-                "https://cdn/logo1.png", "https://cdn/cover1.png", "#2E7D32", "서울 강남구", true, false, false,
+        // 스팟라이트 레일은 관리자가 고정(pin)한 회사만 담는다.
+        CompanySummary pinned = new CompanySummary(1L, "고정노출사", "정밀 부품",
+                "https://cdn/logo1.png", "https://cdn/cover1.png", "#2E7D32", "서울 강남구", true, false, true,
                 List.of("제조"), List.of("정밀가공"), List.of("기계"),
                 false, false, null, null, null, null);
         // 커버·브랜드 컬러는 선택 필드다. 둘 다 비운 카드를 섞어 레일이 null 을 그대로 통과시키는지 함께 확인한다
@@ -524,22 +524,21 @@ public class CompanyControllerTest {
                 "https://cdn/logo2.png", null, null, "경기 화성시", true, true, false,
                 List.of("농업"), List.of("IoT"), List.of("농업기술"),
                 true, false, null, null, null, null);
-        // 최근 등록 레일은 자격도 큐레이션도 보지 않는다 — verified/featured/spotlight 가 전부 꺼진 평범한
+        // 최근 등록 레일은 큐레이션을 보지 않는다 — verified/featured/spotlight 가 전부 꺼진 평범한
         // 회사가 올라오는 것이 정상이고, 그게 이 레일이 위 둘과 다른 지면이라는 표시다.
         CompanySummary newcomer = new CompanySummary(3L, "신규등록사", "금형 설계",
                 "https://cdn/logo3.png", null, null, "인천 남동구", false, false, false,
                 List.of("제조"), List.of("금형"), List.of("기계"),
                 false, false, null, null, null, null);
         given(companyQueryService.getShowcase(isNull()))
-                .willReturn(new CompanyShowcaseResponse(List.of(paid), List.of(recommended), List.of(newcomer)));
+                .willReturn(new CompanyShowcaseResponse(List.of(pinned), List.of(recommended), List.of(newcomer)));
 
         mockMvc.perform(get("/api/v1/companies/showcase"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.spotlight[0].id").value(1L))
-                .andExpect(jsonPath("$.data.spotlight[0].companyName").value("유료노출사"))
-                // 자격은 저장되지 않는다 — pin 이 아닌데도 스팟라이트 레일에 올라온다.
-                .andExpect(jsonPath("$.data.spotlight[0].spotlight").value(false))
+                .andExpect(jsonPath("$.data.spotlight[0].companyName").value("고정노출사"))
+                .andExpect(jsonPath("$.data.spotlight[0].spotlight").value(true))
                 // 스팟라이트 카드는 로고 외에 커버(배경)와 브랜드 컬러(배너 색)를 함께 받는다.
                 .andExpect(jsonPath("$.data.spotlight[0].coverImageUrl").value("https://cdn/cover1.png"))
                 .andExpect(jsonPath("$.data.spotlight[0].brandColor").value("#2E7D32"))
@@ -548,7 +547,7 @@ public class CompanyControllerTest {
                 .andExpect(jsonPath("$.data.featured[0].coverImageUrl").doesNotExist())
                 .andExpect(jsonPath("$.data.featured[0].brandColor").doesNotExist())
                 .andExpect(jsonPath("$.data.latest[0].id").value(3L))
-                // 최근 등록은 플래그가 전부 꺼진 회사도 오른다 — 여기엔 노출 자격 개념이 없다.
+                // 최근 등록은 플래그가 전부 꺼진 회사도 오른다 — 여기엔 큐레이션 개념이 없다.
                 .andExpect(jsonPath("$.data.latest[0].verified").value(false))
                 .andExpect(jsonPath("$.data.latest[0].featured").value(false))
                 .andExpect(jsonPath("$.data.latest[0].spotlight").value(false))

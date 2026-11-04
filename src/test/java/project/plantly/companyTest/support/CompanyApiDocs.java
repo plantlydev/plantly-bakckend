@@ -323,7 +323,7 @@ public class CompanyApiDocs {
                         .description("에디터 선정 배지(관리자 큐레이션). 국세청 사업자 확인 여부가 아니다 — 그 값은 businessVerified"),
                 fieldWithPath(prefix + ".featured").type(JsonFieldType.BOOLEAN).description("추천 노출 여부"),
                 fieldWithPath(prefix + ".spotlight").type(JsonFieldType.BOOLEAN)
-                        .description("스팟라이트 수동 고정(pin) 여부. 메인 노출 여부가 아니다 — 요금제 자격으로 노출되는 회사는 이 값이 false 다"),
+                        .description("스팟라이트 수동 고정(pin) 여부. 정렬에서 맨 앞에 온다"),
                 fieldWithPath(prefix + ".likedByMe").type(JsonFieldType.BOOLEAN).description("로그인 뷰어가 이 회사를 좋아요 했는지 (익명·내 회사 목록은 false)"),
                 fieldWithPath(prefix + ".favoritedByMe").type(JsonFieldType.BOOLEAN).description("로그인 뷰어가 이 회사를 즐겨찾기 했는지 (익명·내 회사 목록은 false / 즐겨찾기 목록은 정의상 항상 true)"),
                 fieldWithPath(prefix + ".categoryNames").type(JsonFieldType.ARRAY).description("회사가 연결한 카테고리명 목록"),
@@ -357,7 +357,7 @@ public class CompanyApiDocs {
     }
 
     // 메인 화면 노출 영역 응답(ApiResponse<CompanyShowcaseResponse>). 페이지가 아니라 자리 수만큼의 고정 리스트라
-    // pageInfo 가 없다. 레일끼리 같은 회사가 함께 나올 수 있다(고정 + 추천, 유료 고객이 최근 등록에도).
+    // pageInfo 가 없다. 레일끼리 같은 회사가 함께 나올 수 있다(고정 + 추천, 고정된 회사가 최근 등록에도).
     //
     // latest 는 목록이 아니라 레일이다 — '더보기'는 여기서 더 받아오는 게 아니라 목록 화면
     // (GET /api/v1/companies)으로 넘어간다. 카테고리 패싯을 고른 뒤의 목록도 그 API 가 담당한다.
@@ -416,7 +416,7 @@ public class CompanyApiDocs {
                 fieldWithPath("data.content[].verified").type(JsonFieldType.BOOLEAN).description("에디터 선정(관리자 큐레이션) 배지 여부"),
                 fieldWithPath("data.content[].businessVerified").type(JsonFieldType.BOOLEAN).description("국세청 사업자 확인 여부 (verified 와 다른 축)"),
                 fieldWithPath("data.content[].featured").type(JsonFieldType.BOOLEAN).description("추천 노출 여부 (순수 관리자 큐레이션)"),
-                fieldWithPath("data.content[].spotlight").type(JsonFieldType.BOOLEAN).description("스팟라이트 수동 고정 여부. 유료 등급 회사는 false 여도 구독으로 노출된다"),
+                fieldWithPath("data.content[].spotlight").type(JsonFieldType.BOOLEAN).description("스팟라이트 수동 고정 여부. true 면 메인 스팟라이트 레일 후보다"),
                 fieldWithPath("data.content[].deleted").type(JsonFieldType.BOOLEAN).description("소프트 삭제 여부"),
                 fieldWithPath("data.content[].visibility").type(JsonFieldType.STRING).description("공개 범위 (PUBLIC / PRIVATE). 비공개도 관리자 목록엔 노출"),
                 fieldWithPath("data.content[].ownerUserId").type(JsonFieldType.NUMBER).optional().description("소유 유저 ID (미연동이면 null)"),

@@ -119,11 +119,11 @@ public class CompanyQueryService {
                 List.copyOf(enriched.subList(featuredEnd, enriched.size())));
     }
 
-    // 후보가 자리보다 많아지면 초과분은 조용히 잘린다 — 돈을 받고도 노출되지 않는 고객이 생기는데
-    // 에러가 나지 않아 아무도 모른다. 이 로그가 "로테이션을 붙일 때가 됐다"를 알리는 유일한 신호다.
+    // 후보가 자리보다 많아지면 초과분은 조용히 잘린다 — 관리자가 고정·추천을 켰는데도 노출되지 않는 회사가
+    // 생기는데 에러가 나지 않아 아무도 모른다. 이 로그가 그 상태를 알리는 유일한 신호다.
     private void warnIfOverflow(String railName, ShowcaseRail rail, int slots) {
         if (rail.candidateCount() > slots) {
-            log.warn("{} 레일 후보 {}건이 자리 {}칸을 초과했습니다 — {}건이 노출되지 않습니다. 로테이션 도입 검토 필요.",
+            log.warn("{} 레일 후보 {}건이 자리 {}칸을 초과했습니다 — {}건이 노출되지 않습니다.",
                     railName, rail.candidateCount(), slots, rail.candidateCount() - slots);
         }
     }

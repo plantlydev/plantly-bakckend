@@ -109,9 +109,7 @@ public class Company {
     @Column(nullable = false)
     private boolean featured = false;
 
-    // 스팟라이트 '관리자 수동 고정(pin)' 여부. 이름과 달리 "메인에 노출 중"이라는 뜻이 아니다 —
-    // 요금제 자격으로 노출되는 회사는 이 값이 false 인 채로 메인에 뜬다(자격은 구독에서 조회 시점에 파생).
-    // 이 플래그는 요금제 밖에서 노출해야 하는 회사(제휴·이벤트 등)를 관리자가 꽂는 통로다.
+    // 스팟라이트 '관리자 수동 고정(pin)' 여부. 켜면 메인 스팟라이트 레일 후보가 된다(삭제·비공개면 빠진다).
     // 노출 여부의 최종 판단은 ShowcaseCardRepository 한 곳에 있다.
     @Column(nullable = false)
     private boolean spotlight = false;
@@ -263,7 +261,7 @@ public class Company {
         this.spotlightOrder = spotlightOrder;
     }
 
-    // 수동 고정 해제. 순서값도 초기화한다. (요금제 자격으로 노출되던 회사라면 해제 후에도 계속 노출된다)
+    // 수동 고정 해제. 순서값도 초기화한다.
     public void turnOffSpotlight() {
         this.spotlight = false;
         this.spotlightOrder = 0;
