@@ -11,22 +11,17 @@ import project.plantly.companyTest.support.PostgresContainerTest;
 import project.plantly.domain.company.category.Category;
 import project.plantly.domain.company.entity.Address;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyTag;
 import project.plantly.domain.company.entity.link.CompanyCategory;
 import project.plantly.domain.company.entity.link.CompanyIndustry;
 import project.plantly.domain.company.entity.link.CompanyMember;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.enums.RegistrationSource;
 import project.plantly.domain.company.industry.Industry;
 import project.plantly.domain.company.repository.AdminCompanyCardRepository;
 import project.plantly.domain.company.search.AdminCompanySearchCriteria;
 import project.plantly.domain.company.search.dto.AdminCompanySummary;
 
-import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -152,44 +147,6 @@ class AdminCompanyCardRepositoryTest extends PostgresContainerTest {
         // 관리자 등록·미연동: 소유자 null, 출처 ADMIN
         assertThat(adminCard.ownerUserId()).isNull();
         assertThat(adminCard.registrationSource()).isEqualTo(RegistrationSource.ADMIN);
-    }
-
-    @Test
-    @DisplayName("카드에 구독 요약(effectiveGrade/status/expiresAt)을 담고, effectiveGrade SQL 파생이 엔티티 파생과 일치한다")
-    void cardCarriesSubscriptionSummary_andEffectiveGradeMatchesEntity() {
-        LocalDate today = LocalDate.now();
-        // (등급/상태/만료일) 다양한 조합 — 활성 무기한/유효/만료(→강등), 체험 유효/만료(→강등), 면제(명목 등급 유지).
-        record Case(String name, CompanySubscription sub, CompanyGrade expectedEffective) {}
-        List<Case> cases = List.of(
-                new Case("활성무기한", CompanySubscription.active(CompanyGrade.PREMIUM, today.minusDays(10), null), CompanyGrade.PREMIUM),
-                new Case("활성유효", CompanySubscription.active(CompanyGrade.STANDARD, today.minusDays(10), today.plusDays(30)), CompanyGrade.STANDARD),
-                new Case("활성만료", CompanySubscription.active(CompanyGrade.PREMIUM, today.minusDays(100), today.minusDays(1)), CompanyGrade.FREE),
-                new Case("체험유효", CompanySubscription.trial(CompanyGrade.ENTERPRISE, today.minusDays(1), today.plusDays(7)), CompanyGrade.ENTERPRISE),
-                new Case("체험만료", CompanySubscription.trial(CompanyGrade.ENTERPRISE, today.minusDays(30), today.minusDays(1)), CompanyGrade.FREE),
-                new Case("면제", CompanySubscription.adminExempt(today.minusDays(5)), CompanyGrade.ENTERPRISE));
-
-        Map<Long, Case> byCompanyId = new HashMap<>();
-        for (Case c : cases) {
-            Company company = persistOwned(10L, c.name());
-            c.sub().assignCompany(company.getId());
-            em.persist(c.sub());
-            byCompanyId.put(company.getId(), c);
-        }
-        em.flush();
-
-        List<AdminCompanySummary> cards = repository.findForAdmin(ALL, PageRequest.of(0, 50)).getContent();
-
-        assertThat(cards).hasSize(cases.size());
-        for (AdminCompanySummary card : cards) {
-            Case c = byCompanyId.get(card.id());
-            assertThat(card.status()).isEqualTo(c.sub().getStatus());
-            assertThat(card.expiresAt()).isEqualTo(c.sub().getExpiresAt());
-            // 명시적 기대치 + 엔티티 파생과의 동치(가드): SQL CASE 가 effectiveGrade() 규칙과 어긋나면 실패한다.
-            assertThat(card.effectiveGrade())
-                    .as("case=%s", c.name())
-                    .isEqualTo(c.expectedEffective())
-                    .isEqualTo(c.sub().effectiveGrade(today));
-        }
     }
 
     // ===== helpers =====

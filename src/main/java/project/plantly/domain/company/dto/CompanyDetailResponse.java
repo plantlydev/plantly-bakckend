@@ -46,9 +46,6 @@ public record CompanyDetailResponse(
             boolean deleted,
             CompanyVisibility visibility,   // 공개 범위(PUBLIC/PRIVATE). 소유자/관리자만 보는 운영 메타.
 
-            // 저장된 videoUrl 이 방문자에게도 보이는지. 등급 게이트가 폐지되어 항상 true 다.
-            // 프론트가 아직 읽고 있어 계약 정리(구독 API 제거) 때 함께 뺀다.
-            boolean videoVisibleToPublic,
             // 대표 레퍼런스의 이미지 전부(꺼진 것 포함, displayOrder 순). profile.representativeReference 는 공개 상세처럼
             // 표지 한 장(thumbnailUrl)만 준다 — 레퍼런스 수정은 전체 교체(PUT)라 수정 화면이 이 목록으로 채워야
             // 저장할 때 나머지 장이 지워지지 않는다. 레퍼런스가 없으면 빈 배열.
@@ -74,7 +71,6 @@ public record CompanyDetailResponse(
                     c.isSpotlight(),
                     c.isDeleted(),
                     c.getVisibility(),
-                    true,
                     aggregate.representativeReferenceImages().stream().map(GalleryImageResponse::from).toList(),
                     c.getCreatedAt(),
                     c.getUpdatedAt());

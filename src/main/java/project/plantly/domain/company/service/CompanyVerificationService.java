@@ -9,10 +9,7 @@ import project.plantly.domain.company.dto.CompanyVerificationResponse;
 import project.plantly.domain.company.entity.CompanyVerification;
 import project.plantly.domain.company.enums.VerificationOutcome;
 import project.plantly.domain.company.exception.CompanyErrorCode;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.nts.NtsClient;
-import project.plantly.domain.company.policy.GradePolicyRegistry;
-import project.plantly.domain.company.policy.InitialSubscriptionPolicy;
 import project.plantly.domain.company.policy.VerificationProperties;
 import project.plantly.domain.company.support.BusinessNumbers;
 import project.plantly.global.exception.BusinessException;
@@ -35,11 +32,6 @@ public class CompanyVerificationService {
 
     private final NtsClient ntsClient;
     private final CompanyVerificationWriter writer;
-
-    // 발급 응답에 실을 초기 등급/한도의 출처. 회사 생성(CompanyService)이 실제 구독을 만들 때 읽는 것과
-    // 같은 정책이라, 폼에 안내한 한도와 서버 검증이 구조적으로 어긋날 수 없다.
-    private final InitialSubscriptionPolicy initialSubscriptionPolicy;
-    private final GradePolicyRegistry gradePolicyRegistry;
 
     public CompanyVerificationResponse verify(Long userId, CompanyVerificationRequest request) {
         // 국세청에 물어보기 전에 형식으로 거른다 — 오타로 쿼터를 태우지 않는다.
@@ -74,10 +66,7 @@ public class CompanyVerificationService {
         CompanyVerification verification = writer.issue(userId, businessNumber, request.ceoName(),
                 request.businessStartDate(), result.rawResponse(), now, properties.ttl());
 
-        // 이 인증으로 만들 회사가 받을 등급을 지금 확정해 폼에 함께 내린다. 회사가 생기기 전이라
-        // '등급을 알려면 회사가 있어야 한다'는 순서 문제가 여기서 풀린다(등급 = 인증의 결과).
-        CompanyGrade initialGrade = initialSubscriptionPolicy.initialGrade(verification);
-        return CompanyVerificationResponse.from(verification, initialGrade, gradePolicyRegistry.of(initialGrade));
+        return CompanyVerificationResponse.from(verification);
     }
 
     /**

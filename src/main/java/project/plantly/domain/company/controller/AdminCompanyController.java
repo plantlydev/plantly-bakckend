@@ -27,8 +27,6 @@ import project.plantly.domain.company.dto.CompanyCreateRequest.ContactRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest.ImageRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest.ReferenceRequest;
 import project.plantly.domain.company.dto.AdminCompanyFlagsRequest;
-import project.plantly.domain.company.dto.AdminCompanySubscriptionResponse;
-import project.plantly.domain.company.dto.AdminSubscriptionUpdateRequest;
 import project.plantly.domain.company.dto.AdminVerificationRevokeRequest;
 import project.plantly.domain.company.dto.CompanyDetailResponse;
 import project.plantly.domain.company.dto.CompanyUpdateRequest;
@@ -78,24 +76,6 @@ public class AdminCompanyController {
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<CompanyDetailResponse> getCompanyByAdmin(@PathVariable Long id) {
         return ApiResponse.success(companyQueryService.getForAdmin(id));
-    }
-
-    // 관리자 구독 조회 — 소유 무관, 회사 데이터와 섞지 않고 구독 정보만(감사 타임스탬프 포함) 단독 반환한다.
-    // 수정 팝업이 현재값으로 필드를 채우는 소스다.
-    @GetMapping("/api/v1/admin/companies/{id}/subscription")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<AdminCompanySubscriptionResponse> getSubscriptionByAdmin(@PathVariable Long id) {
-        return ApiResponse.success(companyQueryService.getSubscriptionForAdmin(id));
-    }
-
-    // 관리자 구독 수정 — grade/status/expiresAt 를 관리자가 직접 지정(full-replace). 수정 값은 이미 팝업에
-    // 반영되므로 본문 없이 성공만 반환한다. startedAt 은 팩트라 수정하지 않는다.
-    @PatchMapping("/api/v1/admin/companies/{id}/subscription")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<Void> updateSubscriptionByAdmin(@PathVariable Long id,
-                                                       @Valid @RequestBody AdminSubscriptionUpdateRequest request) {
-        companyUpdateService.updateSubscriptionByAdmin(id, request);
-        return ApiResponse.ok();
     }
 
     // ===== 관리자 수정 — 소유 무관, 모든 회사 대상. 유저 수정과 동일한 변경/구조 불변식을 재사용한다. =====

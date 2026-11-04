@@ -27,7 +27,7 @@ public class MetaUploadController {
      * (SecurityConfig 의 기본 규칙). 선택지 카탈로그를 비로그인에 연 것과 다른 판단인데, 그쪽은 라벨이
      * 공개 상세 화면에서도 쓰이기 때문이고 이쪽은 로그인 없이 할 수 있는 일이 없다.
      *
-     * <p>등급별 장수 제한은 여기 없다 — 회사마다 다른 값이라 인증 응답/구독 조회의 {@code limits} 가 준다.
+     * <p>장수 제한은 여기 없다 — 요청 DTO 의 {@code @Size} 라 폼 제약 응답의 {@code maxItems} 가 준다.
      */
     @GetMapping("/api/v1/meta/upload")
     public ApiResponse<UploadConstraintsResponse> getUploadConstraints() {

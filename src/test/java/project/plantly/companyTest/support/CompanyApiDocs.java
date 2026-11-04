@@ -49,17 +49,6 @@ public class CompanyApiDocs {
                 fieldWithPath("data.businessStartDate").type(JsonFieldType.STRING).description("국세청 검증을 통과한 개업일자"),
                 fieldWithPath("data.expiresAt").type(JsonFieldType.STRING)
                         .description("인증 유효기간(발급 후 7일). 넘겨도 사용자가 할 일은 없다 — 발행 시 서버가 저장값으로 국세청에 다시 물어 갱신한다"),
-                // 등급을 인증 응답에 실는 이유: 컬렉션 입력은 회사가 생기기 전에 끝나므로, 폼이 한도를 알 방법이 여기뿐이다.
-                fieldWithPath("data.initialGrade").type(JsonFieldType.STRING)
-                        .description("이 인증으로 회사를 만들면 받게 될 등급. 국세청 인증을 직접 통과한 자가등록은 체험 최고등급으로 시작한다"),
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER)
-                        .description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER)
-                        .description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER)
-                        .description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN)
-                        .description("동영상 공개 노출 가능 여부. 저장은 등급과 무관하게 허용되므로, false 면 입력란을 감추거나 자물쇠 안내를 붙인다"),
                 fieldWithPath("code").type(JsonFieldType.STRING).optional()
                         .description("에러 코드(ErrorCode 상수명). 클라이언트는 문구가 아니라 이 값으로 분기한다. 성공 응답에는 없다"),
                 fieldWithPath("error").type(JsonFieldType.STRING).optional().description("오류 메시지 (성공 시 null)")
@@ -113,15 +102,15 @@ public class CompanyApiDocs {
                 fieldWithPath("website").type(JsonFieldType.STRING).optional().description("기업 홈페이지"),
                 fieldWithPath("logoUrl").type(JsonFieldType.STRING).optional().description("로고 이미지 URL"),
                 fieldWithPath("coverImageUrl").type(JsonFieldType.STRING).optional()
-                        .description("카드 커버 이미지 URL. 목록 카드 배경에 깔리는 와이드 사진으로, 로고와 다른 자리다 (등급 제한 없음)"),
+                        .description("카드 커버 이미지 URL. 목록 카드 배경에 깔리는 와이드 사진으로, 로고와 다른 자리다"),
                 fieldWithPath("introTitle").type(JsonFieldType.STRING).optional().description("한 줄 요약"),
                 fieldWithPath("content").type(JsonFieldType.STRING).optional().description("소개글"),
                 fieldWithPath("trlLevel").type(JsonFieldType.STRING).optional().description("기술성숙도: PROTOTYPE, MASS_PRODUCTION, GLOBAL_STANDARD"),
-                fieldWithPath("videoUrl").type(JsonFieldType.STRING).optional().description("동영상 링크 (등급별 사용 제한)"),
+                fieldWithPath("videoUrl").type(JsonFieldType.STRING).optional().description("동영상 링크"),
                 fieldWithPath("leadTime").type(JsonFieldType.STRING).optional().description("예상 리드타임"),
                 fieldWithPath("asInfo").type(JsonFieldType.STRING).optional().description("유지보수/AS 정보"),
                 fieldWithPath("pricingType").type(JsonFieldType.STRING).optional().description("견적 산출 방식: FIXED, CONSULTATION, PROJECT_BASED"),
-                fieldWithPath("brandColor").type(JsonFieldType.STRING).optional().description("브랜드 컬러 #RRGGBB (형식 불일치 시 400, 커스텀 불가 등급은 기본값으로 고정)"),
+                fieldWithPath("brandColor").type(JsonFieldType.STRING).optional().description("브랜드 컬러 #RRGGBB (형식 불일치 시 400)"),
                 fieldWithPath("visibility").type(JsonFieldType.STRING).optional().description("공개 범위: PUBLIC(공개), PRIVATE(비공개). 생략 시 PUBLIC"),
 
                 // ===== 자식(소유) 엔티티 =====
@@ -140,14 +129,14 @@ public class CompanyApiDocs {
                 fieldWithPath("references[].achievements").type(JsonFieldType.STRING).optional().description("성과"),
                 fieldWithPath("references[].partners").type(JsonFieldType.STRING).optional().description("협력사"),
                 fieldWithPath("references[].period").type(JsonFieldType.STRING).optional().description("기간"),
-                fieldWithPath("references[].imageUrls").type(JsonFieldType.ARRAY).optional().description("레퍼런스 이미지 URL 목록 (등급별 장수 제한)"),
+                fieldWithPath("references[].imageUrls").type(JsonFieldType.ARRAY).optional().description("레퍼런스 이미지 URL 목록 (장수 상한은 폼 제약 maxItems)"),
 
                 fieldWithPath("materialNames").type(JsonFieldType.ARRAY).optional().description("취급 소재명 목록"),
                 fieldWithPath("equipmentNames").type(JsonFieldType.ARRAY).optional().description("보유 설비명 목록"),
                 fieldWithPath("tagNames").type(JsonFieldType.ARRAY).optional().description("태그 목록"),
 
                 // ===== 링크(M:N) 엔티티 - 기존 마스터 ID 참조 =====
-                fieldWithPath("categoryIds").type(JsonFieldType.ARRAY).optional().description("카테고리 ID 목록 (등급별 개수 제한)"),
+                fieldWithPath("categoryIds").type(JsonFieldType.ARRAY).optional().description("카테고리 ID 목록 (개수 상한은 폼 제약 maxItems)"),
                 fieldWithPath("certifications").type(JsonFieldType.ARRAY).optional().description("인증 목록"),
                 fieldWithPath("certifications[].certificationId").type(JsonFieldType.NUMBER)
                         .description("인증 ID. 목록에 없는 인증은 '기타' 인증의 ID 를 보내고 customName 에 이름을 적는다"),
@@ -225,18 +214,14 @@ public class CompanyApiDocs {
                         .description("마지막 저장 시각 (\"n분 전 저장됨\" 등 표시용)"),
                 fieldWithPath("data.verification").type(JsonFieldType.OBJECT).optional()
                         .description("이 번호로 지금 발행에 쓸 인증. 사업자 인증 응답(company-verification)의 data 와 같은 모양이라 "
-                                + "재인증 없이 읽기 전용 칸과 한도를 그린다. 이어쓸 인증이 없으면(전부 회수됨) null — 사업자 인증부터 다시 받는다"),
+                                + "재인증 없이 읽기 전용 칸을 그린다. 이어쓸 인증이 없으면(전부 회수됨) null — 사업자 인증부터 다시 받는다"),
                 fieldWithPath("data.verification.verificationId").type(JsonFieldType.NUMBER).optional()
                         .description("발행 요청에 실을 인증 식별자. payload.verificationId 대신 이 값을 쓴다"),
                 fieldWithPath("data.verification.businessNumber").type(JsonFieldType.STRING).optional().description("정규화된 사업자등록번호"),
                 fieldWithPath("data.verification.ceoName").type(JsonFieldType.STRING).optional().description("국세청 검증을 통과한 대표자 성명"),
                 fieldWithPath("data.verification.businessStartDate").type(JsonFieldType.STRING).optional().description("국세청 검증을 통과한 개업일자"),
                 fieldWithPath("data.verification.expiresAt").type(JsonFieldType.STRING).optional()
-                        .description("인증 유효기간. 지나 있어도 발행 시 서버가 자동으로 다시 확인하므로 사용자에게 알릴 필요가 없다"),
-                fieldWithPath("data.verification.initialGrade").type(JsonFieldType.STRING).optional()
-                        .description("이 인증으로 회사를 만들면 받게 될 등급"),
-                fieldWithPath("data.verification.limits").type(JsonFieldType.OBJECT).optional()
-                        .description("그 등급의 입력 한도. 필드는 사업자 인증 응답의 limits 와 같다")
+                        .description("인증 유효기간. 지나 있어도 발행 시 서버가 자동으로 다시 확인하므로 사용자에게 알릴 필요가 없다")
         };
     }
 
@@ -257,11 +242,11 @@ public class CompanyApiDocs {
                 fieldWithPath("introTitle").type(JsonFieldType.STRING).optional().description("한 줄 요약 (빈 문자열 = 비우기)"),
                 fieldWithPath("content").type(JsonFieldType.STRING).optional().description("소개글 (빈 문자열 = 비우기)"),
                 fieldWithPath("trlLevel").type(JsonFieldType.STRING).optional().description("기술성숙도: PROTOTYPE, MASS_PRODUCTION, GLOBAL_STANDARD (clear 미지원)"),
-                fieldWithPath("videoUrl").type(JsonFieldType.STRING).optional().description("동영상 링크 (등급별 사용 제한, 빈 문자열 = 비우기)"),
+                fieldWithPath("videoUrl").type(JsonFieldType.STRING).optional().description("동영상 링크 (빈 문자열 = 비우기)"),
                 fieldWithPath("leadTime").type(JsonFieldType.STRING).optional().description("예상 리드타임 (빈 문자열 = 비우기)"),
                 fieldWithPath("asInfo").type(JsonFieldType.STRING).optional().description("유지보수/AS 정보 (빈 문자열 = 비우기)"),
                 fieldWithPath("pricingType").type(JsonFieldType.STRING).optional().description("견적 산출 방식: FIXED, CONSULTATION, PROJECT_BASED (clear 미지원)"),
-                fieldWithPath("brandColor").type(JsonFieldType.STRING).optional().description("브랜드 컬러 #RRGGBB (형식 불일치 시 400, 커스텀 불가 등급은 무시, 빈 문자열 = 비우기)")
+                fieldWithPath("brandColor").type(JsonFieldType.STRING).optional().description("브랜드 컬러 #RRGGBB (형식 불일치 시 400, 빈 문자열 = 비우기)")
         };
     }
 
@@ -438,9 +423,6 @@ public class CompanyApiDocs {
                 fieldWithPath("data.content[].registrationSource").type(JsonFieldType.STRING).description("등록 출처 (USER / ADMIN)"),
                 fieldWithPath("data.content[].createdAt").type(JsonFieldType.STRING).description("등록 시각"),
                 fieldWithPath("data.content[].updatedAt").type(JsonFieldType.STRING).description("마지막 수정 시각 (회사 본체 기준)"),
-                fieldWithPath("data.content[].effectiveGrade").type(JsonFieldType.STRING).optional().description("지금 유효한 구독 등급 (만료 시 FREE 로 강등). 구독 없으면 null"),
-                fieldWithPath("data.content[].status").type(JsonFieldType.STRING).optional().description("구독 상태: ACTIVE(결제), TRIAL(체험), ADMIN_EXEMPT(면제). 체험/결제 구분용. 구독 없으면 null"),
-                fieldWithPath("data.content[].expiresAt").type(JsonFieldType.STRING).optional().description("구독 만료일 (yyyy-MM-dd, null = 무기한 또는 구독 없음)"),
                 fieldWithPath("data.content[].categoryNames").type(JsonFieldType.ARRAY).description("회사가 연결한 카테고리명 목록"),
                 fieldWithPath("data.content[].tagNames").type(JsonFieldType.ARRAY).description("태그명 목록"),
                 fieldWithPath("data.content[].industryNames").type(JsonFieldType.ARRAY).description("산업군명 목록"),
@@ -448,61 +430,6 @@ public class CompanyApiDocs {
                 fieldWithPath("data.pageInfo.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
                 fieldWithPath("data.pageInfo.totalElement").type(JsonFieldType.NUMBER).description("전체 건수"),
                 fieldWithPath("data.pageInfo.totalPage").type(JsonFieldType.NUMBER).description("전체 페이지 수")
-        };
-    }
-
-    // 소유자 구독 조회 응답(ApiResponse<CompanySubscriptionResponse>). 회사 데이터와 섞지 않은 구독 단독 정보.
-    public static FieldDescriptor[] companySubscriptionResponseFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                fieldWithPath("data.companyId").type(JsonFieldType.NUMBER).description("구독 주체(회사) ID"),
-                fieldWithPath("data.companyName").type(JsonFieldType.STRING).description("구독 주체(회사) 이름"),
-                fieldWithPath("data.grade").type(JsonFieldType.STRING).description("계약(저장) 등급: FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("data.effectiveGrade").type(JsonFieldType.STRING).description("지금 유효한 등급 (체험/만료 반영, 정책이 실제 참조하는 값). 만료 시 FREE 로 강등됨"),
-                fieldWithPath("data.status").type(JsonFieldType.STRING).description("구독 상태: ACTIVE(정상), TRIAL(체험), ADMIN_EXEMPT(관리자 등록·한도 면제)"),
-                fieldWithPath("data.startedAt").type(JsonFieldType.STRING).description("구독 시작일 (yyyy-MM-dd)"),
-                fieldWithPath("data.expiresAt").type(JsonFieldType.STRING).optional().description("구독 만료일 (yyyy-MM-dd, null = 무기한)"),
-                // 한도를 구독 응답에 싣는 이유: 수정 폼이 한도를 알 방법이 여기뿐이다. 등급 이름만 주면
-                // 프론트가 등급→한도 표를 따로 들게 되고, 표를 고칠 때 두 곳이 어긋난다.
-                // 계약 등급이 아니라 effectiveGrade 기준이다 — 정책이 실제로 참조하는 값이 그쪽이다.
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER)
-                        .description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER)
-                        .description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER)
-                        .description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN)
-                        .description("동영상 공개 노출 가능 여부. 저장은 등급과 무관하게 허용되므로, false 면 입력란을 감추거나 자물쇠 안내를 붙인다")
-        };
-    }
-
-    // 관리자 구독 조회 응답(ApiResponse<AdminCompanySubscriptionResponse>). 사용자용 + 감사 타임스탬프.
-    public static FieldDescriptor[] adminCompanySubscriptionResponseFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                fieldWithPath("data.companyId").type(JsonFieldType.NUMBER).description("구독 주체(회사) ID"),
-                fieldWithPath("data.companyName").type(JsonFieldType.STRING).description("구독 주체(회사) 이름"),
-                fieldWithPath("data.grade").type(JsonFieldType.STRING).description("계약(저장) 등급: FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("data.effectiveGrade").type(JsonFieldType.STRING).description("지금 유효한 등급 (체험/만료 반영, 정책이 실제 참조하는 값). 만료 시 FREE 로 강등됨"),
-                fieldWithPath("data.status").type(JsonFieldType.STRING).description("구독 상태: ACTIVE(정상), TRIAL(체험), ADMIN_EXEMPT(관리자 등록·한도 면제)"),
-                fieldWithPath("data.startedAt").type(JsonFieldType.STRING).description("구독 시작일 (yyyy-MM-dd)"),
-                fieldWithPath("data.expiresAt").type(JsonFieldType.STRING).optional().description("구독 만료일 (yyyy-MM-dd, null = 무기한)"),
-                fieldWithPath("data.createdAt").type(JsonFieldType.STRING).description("구독 생성 시각 (감사용)"),
-                fieldWithPath("data.updatedAt").type(JsonFieldType.STRING).description("구독 최종 수정 시각 (감사용)"),
-                // 한도는 행위자가 아니라 회사의 구독이 정한다 — 관리자 수정도 같은 한도에 걸리므로 수정 화면이 이 값으로 막는다.
-                fieldWithPath("data.limits.maxCategories").type(JsonFieldType.NUMBER).description("선택 가능한 카테고리 최대 개수"),
-                fieldWithPath("data.limits.maxDetailImages").type(JsonFieldType.NUMBER).description("갤러리 상세 이미지 최대 장수"),
-                fieldWithPath("data.limits.maxReferenceImages").type(JsonFieldType.NUMBER).description("레퍼런스 1건당 이미지 최대 장수 (0 = 업로드 비활성)"),
-                fieldWithPath("data.limits.videoAllowed").type(JsonFieldType.BOOLEAN).description("동영상 공개 노출 가능 여부")
-        };
-    }
-
-    // 관리자 구독 수정 요청(AdminSubscriptionUpdateRequest). 팝업이 세 필드를 항상 채워 보내는 full-replace.
-    public static FieldDescriptor[] adminSubscriptionUpdateRequestFields() {
-        return new FieldDescriptor[]{
-                fieldWithPath("grade").type(JsonFieldType.STRING).description("변경할 등급 (필수): FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE"),
-                fieldWithPath("status").type(JsonFieldType.STRING).description("변경할 상태 (필수): ACTIVE, TRIAL, ADMIN_EXEMPT"),
-                fieldWithPath("expiresAt").type(JsonFieldType.STRING).optional().description("만료일 (yyyy-MM-dd). null = 무기한(만료 없음). startedAt 은 수정하지 않는다")
         };
     }
 
@@ -650,8 +577,6 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "spotlight").type(JsonFieldType.BOOLEAN).description("스포트라이트 여부"),
                 fieldWithPath(p + "deleted").type(JsonFieldType.BOOLEAN).description("소프트 삭제 여부"),
                 fieldWithPath(p + "visibility").type(JsonFieldType.STRING).description("공개 범위 (PUBLIC / PRIVATE)"),
-                fieldWithPath(p + "videoVisibleToPublic").type(JsonFieldType.BOOLEAN)
-                        .description("(폐지 예정) 동영상 공개 여부. 등급 게이트가 폐지되어 항상 true"),
                 fieldWithPath(p + "representativeReferenceImages").type(JsonFieldType.ARRAY)
                         .description("대표 레퍼런스의 이미지 전부 (꺼진 것 포함, 표시 순서). profile 의 레퍼런스는 표지 한 장뿐이라,"
                                 + " 레퍼런스 전체 교체(PUT) 전에 수정 화면이 이 목록으로 채운다. 레퍼런스가 없으면 빈 배열"),

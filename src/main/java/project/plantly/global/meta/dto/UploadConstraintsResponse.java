@@ -31,9 +31,8 @@ import java.util.List;
  * "10MB" 같은 표기는 화면이 만든다 — 사람이 읽는 문구는 서버가 소유하지 않는다
  * ({@link project.plantly.global.meta.OptionCatalog} 의 라벨 기준과 같은 판단).
  *
- * <p>등급별 <b>장수</b> 제한은 여기 없다. 회사마다 다른 값이라 이 정적 응답에 담을 수 없고,
- * 등록 폼은 인증 응답의 {@code limits}, 수정 폼은 구독 조회의 {@code limits} 를 본다. 여기 있는 것은
- * 등급과 무관한 "한 장당" 제약이다.
+ * <p><b>장수</b> 제한은 여기 없다 — 요청 DTO 의 {@code @Size} 라 폼 제약 응답
+ * ({@code GET /api/v1/meta/constraints/{form}})의 {@code maxItems} 가 준다. 여기 있는 것은 "한 장당" 제약이다.
  */
 public record UploadConstraintsResponse(
         long maxFileSizeBytes,

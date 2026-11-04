@@ -89,9 +89,7 @@ class CompanyDraftAcceptanceTest extends AcceptanceTest {
                     .statusCode(200)
                     .body("data.verification.verificationId", equalTo((int) vid))
                     .body("data.verification.businessNumber", equalTo(BUSINESS_NUMBER))
-                    .body("data.verification.ceoName", equalTo(CompanyAggregateSeeder.CEO_NAME))
-                    .body("data.verification.initialGrade", equalTo("ENTERPRISE"))
-                    .body("data.verification.limits.maxDetailImages", equalTo(30));
+                    .body("data.verification.ceoName", equalTo(CompanyAggregateSeeder.CEO_NAME));
         }
 
         @Test

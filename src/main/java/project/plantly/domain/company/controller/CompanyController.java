@@ -32,7 +32,6 @@ import project.plantly.domain.company.dto.CompanyShowcaseResponse;
 import project.plantly.domain.company.dto.CompanyStatsResponse;
 import project.plantly.domain.company.dto.CompanyReverificationRequest;
 import project.plantly.domain.company.dto.CompanyReverificationResponse;
-import project.plantly.domain.company.dto.CompanySubscriptionResponse;
 import project.plantly.domain.company.dto.CompanyUpdateRequest;
 import project.plantly.domain.company.dto.CompanyVerificationRequest;
 import project.plantly.domain.company.dto.CompanyVerificationResponse;
@@ -208,13 +207,6 @@ public class CompanyController {
     public ApiResponse<CompanyDetailResponse> getMyCompany(@AuthenticationPrincipal UserPrincipal principal,
                                                            @PathVariable Long id) {
         return ApiResponse.success(companyQueryService.getOwnerView(id, principal.getUser().getId()));
-    }
-
-    // 소유자 전용 구독 조회 — 요청자가 해당 회사의 멤버여야 한다. 회사 데이터와 섞지 않고 구독 정보만 단독으로 반환한다.
-    @GetMapping("/api/v1/companies/{id}/subscription")
-    public ApiResponse<CompanySubscriptionResponse> getMySubscription(@AuthenticationPrincipal UserPrincipal principal,
-                                                                      @PathVariable Long id) {
-        return ApiResponse.success(companyQueryService.getSubscriptionForOwner(id, principal.getUser().getId()));
     }
 
     // 기본 정보 부분 수정 — 소유자만. null=미변경(sparse). 수정 값은 화면에 이미 반영되므로 본문 없이 성공만 반환한다.

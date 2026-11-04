@@ -4,17 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.company.dto.AdminCompanyFlagsRequest;
-import project.plantly.domain.company.dto.AdminSubscriptionUpdateRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest.CertificationRequest;
 import project.plantly.domain.company.dto.CompanyUpdateRequest;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyMemberRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.repository.CompanySubscriptionRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.search.CompanySearchDocumentWriter;
 import project.plantly.global.exception.BusinessException;
@@ -34,7 +31,6 @@ public class CompanyUpdateService {
 
     private final CompanyRepository companyRepository;
     private final CompanyMemberRepository companyMemberRepository;
-    private final CompanySubscriptionRepository companySubscriptionRepository;
     private final CompanyVerificationRepository verificationRepository;
     private final CompanyChildWriter childWriter;
     private final CompanyLinkWriter linkWriter;
@@ -249,16 +245,6 @@ public class CompanyUpdateService {
         if (request.spotlight() != null) {
             company.changeSpotlight(request.spotlight());
         }
-    }
-
-    // ===== 관리자 구독 수정 (raw full-replace) =====
-    // 관리자가 grade/status/expiresAt 를 직접 지정한다(팝업의 라인별 드롭다운). 회사 컬렉션 변경이 아니라
-    // 구독 테이블만 건드리므로 검색 재동기화가 필요 없다. 등급별 한도는 폐지되어 이 값이 쓰기·노출에 영향을 주지 않는다.
-    public void updateSubscriptionByAdmin(Long companyId, AdminSubscriptionUpdateRequest request) {
-        CompanySubscription subscription = companySubscriptionRepository.findByCompanyId(companyId)
-                .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
-
-        subscription.changeByAdmin(request.grade(), request.status(), request.expiresAt());
     }
 
     // ===== 공통 실행 골격 =====

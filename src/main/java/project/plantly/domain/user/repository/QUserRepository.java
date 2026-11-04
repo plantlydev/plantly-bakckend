@@ -9,7 +9,7 @@ import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Repository;
 import project.plantly.domain.user.QUser;
 import org.springframework.data.domain.Page;
-import project.plantly.domain.user.dto.response.AdminUserRow;
+import project.plantly.domain.user.dto.response.AdminUserListResponse;
 
 import java.util.List;
 
@@ -20,11 +20,9 @@ public class QUserRepository {
     private final JPAQueryFactory jpaQueryFactory;
     private final QUser qUser = QUser.user;
 
-    // 유저 본체만 투영한다(userId 포함). 소유 회사 구독 배지는 서비스가 userId 로 배치 조회해 병합한다.
-    public Page<AdminUserRow> getAdminUsers (Pageable pageable){
-        List<AdminUserRow> content = jpaQueryFactory
-                .select(Projections.constructor(AdminUserRow.class,
-                        qUser.id,
+    public Page<AdminUserListResponse> getAdminUsers (Pageable pageable){
+        List<AdminUserListResponse> content = jpaQueryFactory
+                .select(Projections.constructor(AdminUserListResponse.class,
                         qUser.email,
                         qUser.name,
                         qUser.phone,

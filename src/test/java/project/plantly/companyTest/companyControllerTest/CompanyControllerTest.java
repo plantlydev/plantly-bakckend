@@ -32,15 +32,11 @@ import project.plantly.domain.company.dto.CompanyDraftResponse;
 import project.plantly.domain.company.dto.CompanyDraftSummary;
 import project.plantly.domain.company.dto.CompanyShowcaseResponse;
 import project.plantly.domain.company.dto.CompanyStatsResponse;
-import project.plantly.domain.company.dto.CompanySubscriptionResponse;
-import project.plantly.domain.company.dto.GradeLimits;
 import project.plantly.domain.company.dto.CompanyReverificationRequest;
 import project.plantly.domain.company.dto.CompanyReverificationResponse;
 import project.plantly.domain.company.dto.CompanyVerificationRequest;
 import project.plantly.domain.company.dto.CompanyVerificationResponse;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.enums.SubscriptionStatus;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.search.CompanySearchCriteria;
 import project.plantly.domain.company.enums.CompanyVisibility;
@@ -149,10 +145,7 @@ public class CompanyControllerTest {
         CompanyVerificationRequest request = CompanyCreateRequestSamples.verificationRequest();
         given(companyVerificationService.verify(eq(7L), any(CompanyVerificationRequest.class)))
                 .willReturn(new CompanyVerificationResponse(99L, "1234567890", "김대표",
-                        LocalDate.of(2020, 1, 15), LocalDateTime.of(2026, 7, 19, 12, 30),
-                        // 인증에 성공한 자가등록은 체험 최고등급으로 시작하고, 등록 폼은 그 한도로 입력을 연다.
-                        CompanyGrade.ENTERPRISE,
-                        new GradeLimits(10, 30, 10, true)));
+                        LocalDate.of(2020, 1, 15), LocalDateTime.of(2026, 7, 19, 12, 30)));
         authenticate(7L, UserRole.MEMBER);
 
         mockMvc.perform(post("/api/v1/companies/verification")
@@ -353,8 +346,7 @@ public class CompanyControllerTest {
     @DisplayName("재진입 시 초안 조회는 저장했던 폼 상태(payload)·마지막 저장 시각·이어쓸 인증을 반환한다")
     void getDraft_success() throws Exception {
         CompanyVerificationResponse verification = new CompanyVerificationResponse(
-                123L, BUSINESS_NUMBER, "홍길동", LocalDate.of(2018, 3, 2), LocalDateTime.of(2026, 7, 27, 9, 0),
-                CompanyGrade.ENTERPRISE, new GradeLimits(10, 30, 10, true));
+                123L, BUSINESS_NUMBER, "홍길동", LocalDate.of(2018, 3, 2), LocalDateTime.of(2026, 7, 27, 9, 0));
         CompanyDraftResponse response = new CompanyDraftResponse(
                 CompanyCreateRequestSamples.myFull(), LocalDateTime.of(2026, 7, 23, 10, 0), verification);
         given(companyDraftService.get(7L, BUSINESS_NUMBER)).willReturn(response);
@@ -367,7 +359,6 @@ public class CompanyControllerTest {
                 .andExpect(jsonPath("$.data.payload.companyName").value("플랜틀리"))
                 .andExpect(jsonPath("$.data.updatedAt").value("2026-07-23T10:00:00"))
                 .andExpect(jsonPath("$.data.verification.verificationId").value(123L))
-                .andExpect(jsonPath("$.data.verification.limits.maxDetailImages").value(30))
                 // payload 내부 필드는 회사 등록 요청과 동일하므로 relaxed 로 봉투·저장시각만 문서화한다(중복 방지).
                 .andDo(document("company-draft-get",
                         pathParameters(parameterWithName("businessNumber").description(
@@ -455,52 +446,6 @@ public class CompanyControllerTest {
                 .andDo(document("company-owner-detail",
                         pathParameters(parameterWithName("id").description("회사 ID")),
                         responseFields(CompanyApiDocs.companyDetailResponseFields())));
-    }
-
-    @Test
-    @DisplayName("소유자 전용 구독 조회는 멤버 본인에게 구독 정보(등급/유효등급/상태/기간)를 반환한다")
-    void getMySubscription_owner_success() throws Exception {
-        CompanySubscriptionResponse subscription = new CompanySubscriptionResponse(
-                9L, "플랜틀리테크", CompanyGrade.PREMIUM, CompanyGrade.PREMIUM, SubscriptionStatus.ACTIVE,
-                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31),
-                new GradeLimits(10, 20, 0, true));
-        given(companyQueryService.getSubscriptionForOwner(eq(9L), eq(7L))).willReturn(subscription);
-        authenticate(7L, UserRole.MEMBER);
-
-        mockMvc.perform(get("/api/v1/companies/{id}/subscription", 9L))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.companyId").value(9L))
-                .andExpect(jsonPath("$.data.companyName").value("플랜틀리테크"))
-                .andExpect(jsonPath("$.data.grade").value("PREMIUM"))
-                .andExpect(jsonPath("$.data.effectiveGrade").value("PREMIUM"))
-                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.startedAt").value("2026-01-01"))
-                .andExpect(jsonPath("$.data.expiresAt").value("2026-12-31"))
-                // 수정 폼이 입력 개수를 제어하는 근거. 등급 이름만 내려주면 프론트가 등급→한도 표를
-                // 한 벌 더 들게 되고, 표를 고칠 때 두 곳이 어긋난다.
-                .andExpect(jsonPath("$.data.limits.maxCategories").value(10))
-                .andExpect(jsonPath("$.data.limits.maxDetailImages").value(20))
-                .andExpect(jsonPath("$.data.limits.maxReferenceImages").value(0))
-                .andExpect(jsonPath("$.data.limits.videoAllowed").value(true))
-                .andDo(document("company-subscription",
-                        pathParameters(parameterWithName("id").description("회사 ID")),
-                        responseFields(CompanyApiDocs.companySubscriptionResponseFields())));
-    }
-
-    @Test
-    @DisplayName("소유자 전용 구독 조회를 멤버가 아닌 유저가 호출하면 403(COMPANY_ACCESS_DENIED) 를 반환한다")
-    void getMySubscription_accessDenied() throws Exception {
-        given(companyQueryService.getSubscriptionForOwner(eq(9L), eq(7L)))
-                .willThrow(new BusinessException(CompanyErrorCode.COMPANY_ACCESS_DENIED));
-        authenticate(7L, UserRole.MEMBER);
-
-        mockMvc.perform(get("/api/v1/companies/{id}/subscription", 9L))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error").value("해당 회사에 대한 접근 권한이 없습니다."))
-                .andDo(document("company-subscription-forbidden",
-                        responseFields(CompanyApiDocs.errorResponseFields())));
     }
 
     @Test

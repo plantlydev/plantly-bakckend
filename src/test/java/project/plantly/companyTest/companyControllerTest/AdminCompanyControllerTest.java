@@ -29,10 +29,8 @@ import project.plantly.companyTest.support.CompanyCreateRequestSamples;
 import project.plantly.companyTest.support.CompanyResponseSamples;
 import project.plantly.domain.company.controller.AdminCompanyController;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.enums.RegistrationSource;
-import project.plantly.domain.company.enums.SubscriptionStatus;
 import project.plantly.domain.company.search.AdminCompanySearchCriteria;
 import project.plantly.domain.company.search.dto.AdminCompanySummary;
 import project.plantly.domain.company.service.CompanyQueryService;
@@ -47,7 +45,6 @@ import project.plantly.global.security.UserPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -164,7 +161,6 @@ public class AdminCompanyControllerTest {
                 "https://cdn/logo.png", "https://cdn/cover.png", "서울 강남구", true, true, true, false,
                 true, CompanyVisibility.PUBLIC, 7L, RegistrationSource.USER, LocalDateTime.of(2024, 1, 2, 3, 4, 5),
                 LocalDateTime.of(2024, 2, 3, 4, 5, 6),
-                CompanyGrade.PREMIUM, SubscriptionStatus.TRIAL, LocalDate.of(2026, 12, 31),
                 List.of("제조", "정밀가공"), List.of("스마트팜", "IoT"), List.of("농업기술"));
         PageResponse<AdminCompanySummary> page = new PageResponse<>(List.of(item), new PageInfo(1, 20, 1, 1));
         given(companyQueryService.listForAdmin(any(AdminCompanySearchCriteria.class), any(Pageable.class))).willReturn(page);
@@ -180,9 +176,6 @@ public class AdminCompanyControllerTest {
                 .andExpect(jsonPath("$.data.content[0].updatedAt").exists())
                 .andExpect(jsonPath("$.data.content[0].ownerUserId").value(7L))
                 .andExpect(jsonPath("$.data.content[0].registrationSource").value("USER"))
-                .andExpect(jsonPath("$.data.content[0].effectiveGrade").value("PREMIUM"))
-                .andExpect(jsonPath("$.data.content[0].status").value("TRIAL"))
-                .andExpect(jsonPath("$.data.content[0].expiresAt").value("2026-12-31"))
                 .andExpect(jsonPath("$.data.content[0].categoryNames[0]").value("제조"))
                 .andExpect(jsonPath("$.data.pageInfo.totalElement").value(1))
                 .andDo(document("admin-company-list",
