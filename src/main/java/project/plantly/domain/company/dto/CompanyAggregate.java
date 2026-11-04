@@ -21,7 +21,7 @@ import java.util.List;
 // 연락처/레퍼런스는 하위 필드를 가진 컬렉션이라 초기 버전은 대표 1건만 상세에 싣는다(없으면 null).
 // representativeReferenceThumbnail 은 그 대표 레퍼런스의 표지 이미지 1장(displayOrder 최소)이다(없으면 null).
 //   공개 상세는 이 한 장만 싣는다(전체는 추후 '레퍼런스 더보기' 전용 조회로 분리).
-// representativeReferenceImages 는 같은 레퍼런스의 이미지 전부(꺼진 것 포함, displayOrder 순)다. 소유자/관리자
+// representativeReferenceImages 는 같은 레퍼런스의 이미지 전부(displayOrder 순)다. 소유자/관리자
 //   응답(meta)만 쓴다 — 레퍼런스 수정은 전체 교체(PUT)라, 수정 화면이 한 장만 알면 저장 순간 나머지가 지워진다.
 // 갤러리 이미지(projectReference == null)는 galleryImages 로 따로 담는다.
 public record CompanyAggregate(

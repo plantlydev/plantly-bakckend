@@ -130,12 +130,9 @@ public record CompanyPublicResponse(
         }
     }
 
-    // active 는 공개 뷰에선 언제나 true 다(꺼진 건 애초에 빠진다). 값이 갈리는 건 소유자/관리자 뷰뿐이며,
-    // 그쪽 화면이 "저장돼 있지만 지금은 공개되지 않는 항목"을 회색으로 구분하는 근거가 된다.
-    public record GalleryImageResponse(String imageUrl, ImageType imageType, int displayOrder, boolean active) {
+    public record GalleryImageResponse(String imageUrl, ImageType imageType, int displayOrder) {
         public static GalleryImageResponse from(CompanyImage image) {
-            return new GalleryImageResponse(image.getImageUrl(), image.getImageType(), image.getDisplayOrder(),
-                    image.isActive());
+            return new GalleryImageResponse(image.getImageUrl(), image.getImageType(), image.getDisplayOrder());
         }
     }
 
@@ -158,13 +155,11 @@ public record CompanyPublicResponse(
         }
     }
 
-    // GalleryImageResponse.active 와 같은 규약. 노출 여부는 마스터가 아니라 링크의 상태라 링크에서 읽는다.
-    public record CategoryResponse(Long id, String categoryName, String slug, int depth, String iconUrl,
-                                   boolean active) {
+    public record CategoryResponse(Long id, String categoryName, String slug, int depth, String iconUrl) {
         public static CategoryResponse from(CompanyCategory link) {
             Category category = link.getCategory();
             return new CategoryResponse(category.getId(), category.getCategoryName(),
-                    category.getSlug(), category.getDepth(), category.getIconUrl(), link.isActive());
+                    category.getSlug(), category.getDepth(), category.getIconUrl());
         }
     }
 

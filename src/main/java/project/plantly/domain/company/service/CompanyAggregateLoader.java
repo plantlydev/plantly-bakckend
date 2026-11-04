@@ -48,9 +48,6 @@ class CompanyAggregateLoader {
         // 이미지는 한 번에 가져와 갤러리(projectReference == null)와 '대표 레퍼런스 표지 1장'으로 나눈다.
         // allImages 가 displayOrder 오름차순이라, 대표 레퍼런스의 첫 매칭이 곧 표지(썸네일)다.
         // (전체 이미지는 상세에 싣지 않는다 — 추후 '레퍼런스 더보기' 전용 조회로 분리)
-        //
-        // 갤러리는 꺼진 이미지까지 전부 담는다 — 공개 뷰가 걸러내고, 소유자/관리자 뷰는 회색으로 보여줘야 하므로
-        // '무엇이 꺼져 있는지'를 여기서 지우면 안 된다(어느 쪽을 줄지는 응답 계층이 정한다).
         List<CompanyImage> allImages = imageRepository.findByCompanyIdOrderByDisplayOrderAsc(companyId);
         List<CompanyImage> galleryImages = allImages.stream()
                 .filter(image -> image.getProjectReference() == null)

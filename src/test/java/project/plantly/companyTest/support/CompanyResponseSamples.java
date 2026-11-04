@@ -41,13 +41,13 @@ public class CompanyResponseSamples {
                 true, true, true, false,   // verified(에디터 선정), businessVerified(국세청 확인), featured, spotlight
                 true, false,   // likedByMe, favoritedByMe
                 new ContactResponse("이담당", "영업팀장", "01022223333", "rep@plantly.test"),
-                List.of(new GalleryImageResponse("https://cdn.plantly.test/gallery/1.png", ImageType.DETAIL, 0, true)),
+                List.of(new GalleryImageResponse("https://cdn.plantly.test/gallery/1.png", ImageType.DETAIL, 0)),
                 new ProjectReferenceResponse("스마트팩토리 구축", "불량률 30% 감소", "A제조", "2022-2023",
                         "https://cdn.plantly.test/ref/cover.png"),
                 List.of("스테인리스"),
                 List.of("CNC 선반"),
                 List.of("정밀"),
-                List.of(new CategoryResponse(1L, "정밀가공", "CAT-001", 1, "https://cdn.plantly.test/cat.png", true)),
+                List.of(new CategoryResponse(1L, "정밀가공", "CAT-001", 1, "https://cdn.plantly.test/cat.png")),
                 List.of(new CertificationResponse(1L, "ISO 9001", CertificationType.MANAGEMENT_SYSTEM)),
                 List.of(new CountryResponse(1L, "KR", "대한민국", "South Korea", Continent.ASIA)),
                 List.of(new RegionResponse(1L, "1100000000", "서울특별시", "서울", RegionLevel.SIDO)),
@@ -66,7 +66,7 @@ public class CompanyResponseSamples {
                         true, LocalDateTime.of(2024, 1, 2, 3, 4, 5),   // businessVerified, businessVerifiedAt
                         true, false, false,                            // featured, spotlight, deleted
                         CompanyVisibility.PUBLIC,
-                        List.of(new GalleryImageResponse("https://cdn.plantly.test/ref/1.png", ImageType.PROJECT, 0, true)),
+                        List.of(new GalleryImageResponse("https://cdn.plantly.test/ref/1.png", ImageType.PROJECT, 0)),
                         LocalDateTime.of(2024, 1, 2, 3, 4, 5),
                         LocalDateTime.of(2024, 1, 2, 3, 4, 5)));
     }
