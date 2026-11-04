@@ -13,11 +13,8 @@ import project.plantly.domain.company.domesticRegion.DomesticRegion;
 import project.plantly.domain.company.domesticRegion.RegionLevel;
 import project.plantly.domain.company.entity.Address;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyContact;
 import project.plantly.domain.company.entity.CompanyVerification;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.enums.SubscriptionStatus;
 import project.plantly.domain.company.entity.CompanyEquipment;
 import project.plantly.domain.company.entity.CompanyImage;
 import project.plantly.domain.company.entity.CompanyMaterial;
@@ -80,11 +77,6 @@ public class CompanyAggregateSeeder {
     public static final String HIDDEN_CASE_VISIBLE_IMAGE_URL = "https://cdn.plantly.test/hidden-case/visible.png";
     public static final String HIDDEN_CASE_HIDDEN_IMAGE_URL = "https://cdn.plantly.test/hidden-case/hidden.png";
 
-    // 유저 자가등록 회사의 구독(seedPublishedCompany): FREE, ACTIVE, 무기한(expiresAt 없음).
-    public static final CompanyGrade SUBSCRIPTION_GRADE = CompanyGrade.FREE;
-    public static final SubscriptionStatus SUBSCRIPTION_STATUS = SubscriptionStatus.ACTIVE;
-    public static final LocalDate SUBSCRIPTION_STARTED_AT = LocalDate.of(2024, 1, 1);
-
     @PersistenceContext
     private EntityManager em;
 
@@ -103,7 +95,6 @@ public class CompanyAggregateSeeder {
         em.persist(company);
 
         attachOwner(company, ownerUserId);
-        attachSubscription(company);
         attachChildren(company);
         attachLinks(company);
         return company.getId();
@@ -128,7 +119,6 @@ public class CompanyAggregateSeeder {
                 null, null, null, null, null, null, null, null);
         em.persist(company);
         attachOwner(company, ownerUserId);
-        attachSubscription(company);
 
         CompanyImage visibleImage = CompanyImage.ofCompany(company, HIDDEN_CASE_VISIBLE_IMAGE_URL, ImageType.DETAIL, 0);
         CompanyImage hiddenImage = CompanyImage.ofCompany(company, HIDDEN_CASE_HIDDEN_IMAGE_URL, ImageType.DETAIL, 1);
@@ -159,7 +149,6 @@ public class CompanyAggregateSeeder {
         company.delete();
         em.persist(company);
         attachOwner(company, ownerUserId);
-        attachSubscription(company);
         return company.getId();
     }
 
@@ -173,7 +162,6 @@ public class CompanyAggregateSeeder {
                 null, null, null, null, null, null, null, null);
         em.persist(company);
         // 미연동: CompanyMember 를 만들지 않는다 (소유자 없음).
-        attachSubscription(company, CompanySubscription.adminExempt(SUBSCRIPTION_STARTED_AT));
         return company.getId();
     }
 
@@ -201,19 +189,6 @@ public class CompanyAggregateSeeder {
 
     private void attachOwner(Company company, Long ownerUserId) {
         em.persist(CompanyMember.owner(company.getId(), ownerUserId));
-    }
-
-    // 등록 트랜잭션에서 회사당 1건 생기는 구독을 재현한다(유저 자가등록 = FREE 무기한).
-    // 이 시더로 만드는 모든 회사가 구독을 갖는다 — 실제 등록 경로(CompanyService)가 예외 없이 1건을 남기므로,
-    // 구독 없는 회사는 프로덕션에 존재할 수 없는 형태다. 상세 조회가 등급 파생 노출을 판단하려면 이 행이 필요하다.
-    private void attachSubscription(Company company) {
-        attachSubscription(company, CompanySubscription.freeForUser(SUBSCRIPTION_STARTED_AT));
-    }
-
-    // 관리자 대신등록 회사는 등급 한도 면제(ADMIN_EXEMPT)로 시작한다 — createByAdmin 과 동일하게 재현한다.
-    private void attachSubscription(Company company, CompanySubscription subscription) {
-        subscription.assignCompany(company.getId());
-        em.persist(subscription);
     }
 
     private void attachChildren(Company company) {

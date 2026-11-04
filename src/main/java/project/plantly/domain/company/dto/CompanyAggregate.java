@@ -8,7 +8,6 @@ import project.plantly.domain.company.entity.CompanyEquipment;
 import project.plantly.domain.company.entity.CompanyImage;
 import project.plantly.domain.company.entity.CompanyMaterial;
 import project.plantly.domain.company.entity.CompanyProjectReference;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyTag;
 import project.plantly.domain.company.entity.link.CompanyCategory;
 import project.plantly.domain.company.entity.link.CompanyCertification;
@@ -27,11 +26,6 @@ import java.util.List;
 // 갤러리 이미지(projectReference == null)는 galleryImages 로 따로 담는다.
 public record CompanyAggregate(
         Company company,
-
-        // 회사의 구독(1:1, 등록 트랜잭션에서 항상 1건 생성). 등급에 따라 노출이 갈리는 필드(videoUrl)의 판정 재료다.
-        // 응답에는 나가지 않는다 — 등급은 내부 정보이고, 조회 서비스가 이걸 읽어 '보여줄지 말지'만 DTO 로 넘긴다.
-        CompanySubscription subscription,
-
         Long ownerUserId,   // 회사의 OWNER 멤버 user id. 관리자 대신등록·미연동이면 null. (소유는 CompanyMember 가 SSOT)
         CompanyContact representativeContact,
         List<CompanyImage> galleryImages,

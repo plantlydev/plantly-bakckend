@@ -12,21 +12,16 @@ import project.plantly.companyTest.support.CompanyVerificationFixture;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyVerification;
 import project.plantly.domain.company.entity.link.CompanyMember;
-import project.plantly.domain.company.enums.CompanyGrade;
 import project.plantly.domain.company.enums.MemberRole;
-import project.plantly.domain.company.enums.SubscriptionStatus;
 import project.plantly.domain.company.enums.VerificationStatus;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.policy.CompanyPolicyView;
 import project.plantly.domain.company.policy.CompanyRegistrationPolicy;
-import project.plantly.domain.company.policy.InitialSubscriptionPolicy;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyMemberRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.repository.CompanySubscriptionRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.search.CompanySearchDocumentWriter;
 import project.plantly.domain.company.service.CompanyChildWriter;
@@ -47,9 +42,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-// CompanyService 단위 테스트: 등급별 outcome 이 아니라 "오케스트레이션/구조"를 검증한다.
-//  - 정책은 mock 으로 두고 "전부 호출되는가 / 어떤 구독(subscription)으로 호출되는가" 만 본다. (등급 판정은 정책 단위 테스트 담당)
-//  - 등록 경로별 차이(OWNER 멤버 생성, 구독 등급/면제)를 못 박는다.
+// CompanyService 단위 테스트: 정책별 outcome 이 아니라 "오케스트레이션/구조"를 검증한다.
+//  - 정책은 mock 으로 두고 "전부 호출되는가" 만 본다. (한도 판정은 정책 단위 테스트 담당)
+//  - 등록 경로별 차이(OWNER 멤버 생성, 인증 소비)를 못 박는다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CompanyService: 회사 등록 오케스트레이션")
 class CompanyServiceTest {
@@ -58,7 +53,6 @@ class CompanyServiceTest {
     @Mock CompanyChildWriter childWriter;
     @Mock CompanyLinkWriter linkWriter;
     @Mock CompanyMemberRepository companyMemberRepository;
-    @Mock CompanySubscriptionRepository companySubscriptionRepository;
     @Mock CompanySearchDocumentWriter searchDocumentWriter;
     @Mock CompanyVerificationRepository verificationRepository;
     @Mock CompanyDraftRepository draftRepository;
@@ -73,8 +67,7 @@ class CompanyServiceTest {
     // 정책 리스트는 테스트마다 다르므로 생성자 직접 호출로 주입한다. (Mockito 가 List<인터페이스> mock 을 자동 주입하지 못함)
     private CompanyService service(CompanyRegistrationPolicy... policies) {
         return new CompanyService(companyRepository, childWriter, linkWriter, companyMemberRepository,
-                verificationRepository, draftRepository, companySubscriptionRepository, searchDocumentWriter,
-                List.of(policies), new InitialSubscriptionPolicy());
+                verificationRepository, draftRepository, searchDocumentWriter, List.of(policies));
     }
 
     // 자가등록은 선행 인증을 소비하므로, 사용 가능한 인증이 조회된다고 가정한다.
@@ -93,7 +86,7 @@ class CompanyServiceTest {
     }
 
     @Test
-    @DisplayName("유저 자가등록: 본체/구독/자식/링크 저장 후 등록자를 OWNER 멤버로 기록하고 회사 id 를 반환한다")
+    @DisplayName("유저 자가등록: 본체/자식/링크 저장 후 등록자를 OWNER 멤버로 기록하고 회사 id 를 반환한다")
     void createByUser_savesCompanyAndOwnerMember() {
         givenSaveAssignsId(10L);
         givenUsableVerification();
@@ -107,11 +100,6 @@ class CompanyServiceTest {
         verify(childWriter).write(any(Company.class), any(CompanyCreateRequest.class));
         verify(linkWriter).write(any(Company.class), any(CompanyCreateRequest.class));
         verify(searchDocumentWriter).write(10L);
-
-        // 구독은 저장된 회사 id 로 연결(1:1)되어 저장된다.
-        ArgumentCaptor<CompanySubscription> subCaptor = ArgumentCaptor.forClass(CompanySubscription.class);
-        verify(companySubscriptionRepository).save(subCaptor.capture());
-        assertThat(subCaptor.getValue().getCompanyId()).isEqualTo(10L);
 
         ArgumentCaptor<CompanyMember> memberCaptor = ArgumentCaptor.forClass(CompanyMember.class);
         verify(companyMemberRepository).save(memberCaptor.capture());
@@ -137,8 +125,8 @@ class CompanyServiceTest {
     }
 
     @Test
-    @DisplayName("유저 자가등록: 주입된 모든 정책을 체험 구독(TRIAL/무기한)으로 실행한다")
-    void createByUser_appliesAllPoliciesWithTrialSubscription() {
+    @DisplayName("유저 자가등록: 주입된 모든 정책을 실행한다")
+    void createByUser_appliesAllPolicies() {
         givenSaveAssignsId(10L);
         CompanyRegistrationPolicy policyA = mock(CompanyRegistrationPolicy.class);
         CompanyRegistrationPolicy policyB = mock(CompanyRegistrationPolicy.class);
@@ -149,20 +137,10 @@ class CompanyServiceTest {
 
         verify(policyA).apply(any(CompanyPolicyView.class));
         verify(policyB).apply(any(CompanyPolicyView.class));
-        ArgumentCaptor<CompanySubscription> subCaptor = ArgumentCaptor.forClass(CompanySubscription.class);
-        verify(companySubscriptionRepository).save(subCaptor.capture());
-        CompanySubscription captured = subCaptor.getValue();
-        assertThat(captured.effectiveGrade()).isEqualTo(CompanyGrade.ENTERPRISE);
-        assertThat(captured.getStatus()).isEqualTo(SubscriptionStatus.TRIAL);
-        // 면제가 아니라 '체험'이다 — 정책은 정상적으로 발화하되 한도가 최상위라 걸리지 않는다.
-        assertThat(captured.isExempt()).isFalse();
-        // 만료일을 비워 두는 것이 이번 단계의 핵심 결정이다. 재조정 배치가 없는 상태에서 만료일을 채우면
-        // effectiveGrade 가 파생값이라 배치 없이도 등급이 떨어져, 초과 컬렉션을 정리할 주체 없이 반쪽 강등이 된다.
-        assertThat(captured.getExpiresAt()).isNull();
     }
 
     @Test
-    @DisplayName("관리자 등록: 본체/구독/자식/링크는 저장하지만 멤버는 만들지 않으며 면제(ADMIN_EXEMPT) 구독으로 정책을 실행한다")
+    @DisplayName("관리자 등록: 본체/자식/링크는 저장하지만 멤버는 만들지 않으며, 정책은 자가등록과 똑같이 실행한다")
     void createByAdmin_savesCompanyButNoMember() {
         givenSaveAssignsId(20L);
         CompanyRegistrationPolicy policy = mock(CompanyRegistrationPolicy.class);
@@ -172,17 +150,12 @@ class CompanyServiceTest {
 
         assertThat(companyId).isEqualTo(20L);
         verify(companyRepository).save(any(Company.class));
-                verify(childWriter).write(any(Company.class), eq(request));
+        verify(childWriter).write(any(Company.class), eq(request));
         verify(linkWriter).write(any(Company.class), eq(request));
         verify(searchDocumentWriter).write(20L);
         verify(companyMemberRepository, never()).save(any());
 
         verify(policy).apply(any(CompanyPolicyView.class));
-        ArgumentCaptor<CompanySubscription> subCaptor = ArgumentCaptor.forClass(CompanySubscription.class);
-        verify(companySubscriptionRepository).save(subCaptor.capture());
-        CompanySubscription captured = subCaptor.getValue();
-        assertThat(captured.isExempt()).isTrue();
-        assertThat(captured.getStatus()).isEqualTo(SubscriptionStatus.ADMIN_EXEMPT);
     }
 
     @Test
@@ -198,7 +171,6 @@ class CompanyServiceTest {
                 .isInstanceOf(BusinessException.class);
 
         verify(companyRepository, never()).save(any());
-        verify(companySubscriptionRepository, never()).save(any());
         verify(childWriter, never()).write(any(), any());
         verify(linkWriter, never()).write(any(), any());
         verify(searchDocumentWriter, never()).write(any());
@@ -277,7 +249,7 @@ class CompanyServiceTest {
         assertThatThrownBy(() -> service().createByUser(USER_ID, myRequest))
                 .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
 
-        verify(companySubscriptionRepository, never()).save(any());
+        verify(childWriter, never()).write(any(), any());
         verify(companyMemberRepository, never()).save(any());
     }
 
