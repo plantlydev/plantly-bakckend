@@ -115,10 +115,7 @@ final class SeedManifestMarkdown {
         if (company.spotlight()) {
             flags.add("스팟" + company.spotlightOrder());
         }
-        // 꺼진 링크가 있으면 "활성/전체" 로 적는다 — 공개 화면에 몇 개가 보여야 하는지가 이 표의 확인 대상이다.
-        flags.add(company.activeCategoryCount() == company.categoryCount()
-                ? "카테고리" + company.categoryCount()
-                : "카테고리" + company.activeCategoryCount() + "/" + company.categoryCount());
+        flags.add("카테고리" + company.categoryCount());
         return String.join(", ", flags);
     }
 

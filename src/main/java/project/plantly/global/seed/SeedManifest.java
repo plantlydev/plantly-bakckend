@@ -43,9 +43,7 @@ public record SeedManifest(
             boolean featured,
             boolean spotlight,
             int spotlightOrder,
-            // 저장된 카테고리 링크 수와 그중 공개되는(active) 수. 둘이 다르면 일부가 꺼진 회사다(C25).
             int categoryCount,
-            int activeCategoryCount,
             String proves
     ) {
     }
