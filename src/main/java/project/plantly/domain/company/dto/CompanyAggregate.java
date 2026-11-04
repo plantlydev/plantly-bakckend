@@ -35,10 +35,9 @@ public record CompanyAggregate(
         List<CompanyMaterial> materials,
         List<CompanyEquipment> equipment,
         List<CompanyTag> tags,
-        // 카테고리는 마스터가 아니라 '링크'로 담는다 — 노출 여부(active)가 링크의 상태라서, 마스터만 담으면
-        // 공개 뷰가 무엇을 가려야 하는지 알 수 없다. 마스터는 link.getCategory() 로 꺼낸다.
+        // 카테고리는 링크째 담는다(회사가 고른 순서 displayOrder 가 링크에 있다). 마스터는 link.getCategory() 로 꺼낸다.
         List<CompanyCategory> categories,
-        // 인증도 카테고리와 같은 이유로 링크째 담는다 — '기타' 링크의 표시 이름(custom_name)은 마스터가 아니라
+        // 인증도 링크째 담는다 — '기타' 링크의 표시 이름(custom_name)은 마스터가 아니라
         // 링크가 들고 있다. 마스터는 link.getCertification() 으로 꺼낸다.
         List<CompanyCertification> certifications,
         List<Country> countries,

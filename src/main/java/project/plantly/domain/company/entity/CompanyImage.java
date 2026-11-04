@@ -40,13 +40,6 @@ public class CompanyImage {
 
     private int displayOrder;
 
-    // 공개 노출 여부. false = 저장은 살아 있지만 공개 조회에서 빠진 상태(CompanyCategory.active 와 같은 규약).
-    // 갤러리 상세 이미지(DETAIL)와 레퍼런스 이미지 둘 다 등급 한도가 걸려 있어 같은 테이블의 한 플래그로 다룬다 —
-    // 다만 세는 단위가 다르다(DETAIL 은 회사당, 레퍼런스 이미지는 레퍼런스 1건당). 그 차이는 값을 계산하는
-    // 재조정 배치가 흡수하고, 조회는 단위와 무관하게 이 플래그만 읽는다.
-    @Column(nullable = false, columnDefinition = "boolean default true")
-    private boolean active = true;
-
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -71,10 +64,5 @@ public class CompanyImage {
     // 프로젝트 레퍼런스 이미지. 소속 회사는 레퍼런스의 회사를 그대로 따라가 항상 일치시킨다.
     public static CompanyImage ofProject(CompanyProjectReference projectReference, String imageUrl, int displayOrder) {
         return new CompanyImage(projectReference.getCompany(), projectReference, imageUrl, ImageType.PROJECT, displayOrder);
-    }
-
-    // 노출 on/off. 방향을 명시하는 멱등 연산이라 토글이 아니다.
-    public void changeActive(boolean active) {
-        this.active = active;
     }
 }
