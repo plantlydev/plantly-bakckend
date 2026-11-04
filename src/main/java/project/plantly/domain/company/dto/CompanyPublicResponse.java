@@ -80,10 +80,7 @@ public record CompanyPublicResponse(
 
     // likedByMe/favoritedByMe 는 aggregate(원자료)에 없는 viewer 별 상태라 호출부(조회 서비스)가 계산해 주입한다.
     // 개인화가 무의미한 경로(소유자/관리자 뷰, 익명)는 false 를 넘긴다.
-    // includeHidden = 꺼진(active=false) 컬렉션 항목을 실을지. 공개 조회는 false(아예 빠진다),
-    // 소유자/관리자 뷰는 true(전부 싣고 active 플래그로 회색 처리한다).
-    public static CompanyPublicResponse from(CompanyAggregate aggregate, boolean likedByMe, boolean favoritedByMe,
-                                             boolean includeHidden) {
+    public static CompanyPublicResponse from(CompanyAggregate aggregate, boolean likedByMe, boolean favoritedByMe) {
         Company c = aggregate.company();
         return new CompanyPublicResponse(
                 c.getId(),
@@ -112,18 +109,14 @@ public record CompanyPublicResponse(
                 favoritedByMe,
                 aggregate.representativeContact() == null ? null
                         : ContactResponse.from(aggregate.representativeContact()),
-                aggregate.galleryImages().stream()
-                        .filter(image -> includeHidden || image.isActive())
-                        .map(GalleryImageResponse::from).toList(),
+                aggregate.galleryImages().stream().map(GalleryImageResponse::from).toList(),
                 aggregate.representativeReference() == null ? null
                         : ProjectReferenceResponse.from(aggregate.representativeReference(),
                                 aggregate.representativeReferenceThumbnail()),
                 aggregate.materials().stream().map(m -> m.getMaterialName()).toList(),
                 aggregate.equipment().stream().map(e -> e.getEquipmentName()).toList(),
                 aggregate.tags().stream().map(t -> t.getTagName()).toList(),
-                aggregate.categories().stream()
-                        .filter(link -> includeHidden || link.isActive())
-                        .map(CategoryResponse::from).toList(),
+                aggregate.categories().stream().map(CategoryResponse::from).toList(),
                 aggregate.certifications().stream().map(CertificationResponse::from).toList(),
                 aggregate.countries().stream().map(CountryResponse::from).toList(),
                 aggregate.regions().stream().map(RegionResponse::from).toList(),

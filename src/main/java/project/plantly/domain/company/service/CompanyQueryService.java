@@ -164,9 +164,7 @@ public class CompanyQueryService {
         boolean favoritedByMe = viewerId != null && companyFavoriteRepository.existsByUserIdAndCompanyId(viewerId, companyId);
 
         CompanyAggregate aggregate = aggregateLoader.load(company);
-        // 마지막 false = 꺼진(active=false) 컬렉션 항목은 응답에서 아예 뺀다. 등급을 여기서 다시 읽지 않는다 —
-        // "왜 꺼졌는가"는 쓰기·재조정 쪽이 이미 판단해 저장해 둔 상태이고, 조회는 그 상태만 읽는다.
-        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe, false);
+        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe);
     }
 
     // 소유자 전용 상세: 요청자가 해당 회사의 멤버여야 한다. 삭제된 회사도 소유자에게는 보인다.

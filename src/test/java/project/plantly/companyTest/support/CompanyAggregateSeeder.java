@@ -70,13 +70,6 @@ public class CompanyAggregateSeeder {
     public static final String REGION_DISPLAY_NAME = "서울";
     public static final String INDUSTRY_NAME = "기계";
 
-    // ----- 일부 항목이 꺼진 회사(seedCompanyWithHiddenItems)의 결정적 값 -----
-    public static final String HIDDEN_CASE_COMPANY_NAME = "가려진항목보유사";
-    public static final String HIDDEN_CASE_VISIBLE_CATEGORY = "표면처리";
-    public static final String HIDDEN_CASE_HIDDEN_CATEGORY = "열처리";
-    public static final String HIDDEN_CASE_VISIBLE_IMAGE_URL = "https://cdn.plantly.test/hidden-case/visible.png";
-    public static final String HIDDEN_CASE_HIDDEN_IMAGE_URL = "https://cdn.plantly.test/hidden-case/hidden.png";
-
     @PersistenceContext
     private EntityManager em;
 
@@ -97,44 +90,6 @@ public class CompanyAggregateSeeder {
         attachOwner(company, ownerUserId);
         attachChildren(company);
         attachLinks(company);
-        return company.getId();
-    }
-
-    /**
-     * 일부 컬렉션이 꺼진(active=false) 회사. 등급 다운그레이드·체험 만료 재조정 이후의 상태다.
-     *
-     * <p>이 시더가 필요한 이유는 검증 공백 때문이다. 자가등록은 최상위 체험 등급이라 초과분이 생기지 않고
-     * 재조정 배치도 아직 없어, 정상 경로만으로는 꺼진 행이 한 건도 만들어지지 않는다 — 조회·카드·색인에
-     * 넣어둔 active 조건이 전부 '한 번도 참이 아닌 필터'로 남는다.
-     *
-     * <p>카테고리 2건 중 1건, 갤러리 이미지 2장 중 1장을 끈다. 남는 쪽은 displayOrder 가 앞선 것이다
-     * (재조정이 쓸 규칙과 같다 — 사용자가 앞에 둔 것을 남긴다).
-     */
-    @Transactional
-    public Long seedCompanyWithHiddenItems(Long ownerUserId) {
-        Company company = Company.createByUser(
-                ownerUserId, "7776665554", HIDDEN_CASE_COMPANY_NAME, "정대표",
-                ESTABLISHMENT_DATE, Address.of("06236", "서울 강남구 언주로 4", null, "2층"),
-                null, "https://cdn.plantly.test/logo4.png", null,
-                null, null, null, null, null, null, null, null);
-        em.persist(company);
-        attachOwner(company, ownerUserId);
-
-        CompanyImage visibleImage = CompanyImage.ofCompany(company, HIDDEN_CASE_VISIBLE_IMAGE_URL, ImageType.DETAIL, 0);
-        CompanyImage hiddenImage = CompanyImage.ofCompany(company, HIDDEN_CASE_HIDDEN_IMAGE_URL, ImageType.DETAIL, 1);
-        hiddenImage.changeActive(false);
-        em.persist(visibleImage);
-        em.persist(hiddenImage);
-
-        Category visibleCategory = Category.createRoot(HIDDEN_CASE_VISIBLE_CATEGORY, "CAT-101", null, null, 0);
-        Category hiddenCategory = Category.createRoot(HIDDEN_CASE_HIDDEN_CATEGORY, "CAT-102", null, null, 1);
-        em.persist(visibleCategory);
-        em.persist(hiddenCategory);
-        CompanyCategory hiddenLink = new CompanyCategory(company, hiddenCategory, 1);
-        hiddenLink.changeActive(false);
-        em.persist(new CompanyCategory(company, visibleCategory, 0));
-        em.persist(hiddenLink);
-
         return company.getId();
     }
 

@@ -54,15 +54,13 @@ public class CompanySearchDocumentWriter {
             """;
 
     // 카테고리 조상 closure 적재. company_category 의 각 카테고리에서 parent_id 체인을 root 까지 펼친다.
-    // 꺼진(active=false) 링크는 색인에서 제외한다 — 남겨두면 카드에는 안 보이는 카테고리로 패싯 검색을 했을 때
-    // 그 회사가 결과에 잡힌다. 색인과 카드가 같은 조건(cc.active)을 보게 해 그 어긋남을 막는다.
     private static final String INSERT_CLOSURE = """
             INSERT INTO company_category_closure (company_id, category_id)
             WITH RECURSIVE anc AS (
                 SELECT cc.company_id, cat.id AS category_id, cat.parent_id
                 FROM company_category cc
                 JOIN category cat ON cat.id = cc.category_id
-                WHERE cc.active AND %s
+                WHERE %s
                 UNION ALL
                 SELECT a.company_id, p.id, p.parent_id
                 FROM anc a

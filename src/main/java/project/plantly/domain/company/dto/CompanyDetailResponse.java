@@ -21,7 +21,7 @@ public record CompanyDetailResponse(
                 // 소유자/관리자 뷰는 관리 목적이라 개인화(좋아요/즐겨찾기 상태)를 담지 않는다.
                 // 마지막 true = 꺼진 항목도 전부 싣는다. 관리 화면은 "무엇이 저장돼 있고 그중 무엇이 지금
                 // 공개되지 않는가"를 보여줘야 하므로, 공개 뷰처럼 지워버리면 소유자가 사라진 줄 안다.
-                CompanyPublicResponse.from(aggregate, false, false, true),
+                CompanyPublicResponse.from(aggregate, false, false),
                 ManagementMeta.from(aggregate));
     }
 
