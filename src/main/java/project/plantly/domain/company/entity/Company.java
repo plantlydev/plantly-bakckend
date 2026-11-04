@@ -69,7 +69,6 @@ public class Company {
     // 카드 커버 이미지(단일·선택). 로고와는 다른 축이다 — 로고는 정사각 배지, 커버는 카드 배경으로 깔리는 와이드 사진.
     // CompanyImage 가 아니라 스칼라로 두는 이유는 '회사당 최대 1장'을 정책이 아니라 구조로 보장하기 위해서다
     // (갤러리에 두면 최대 1장 정책 + 갤러리 전체교체 PUT 이 커버를 날리지 않게 하는 예외가 함께 필요해진다).
-    // 등급 게이트는 없다 — 커버는 카드가 비어 보이지 않게 하는 기본 요소라 전 등급이 올릴 수 있다.
     private String coverImageUrl;
 
     private String introTitle;  // 한 줄 요약
@@ -109,9 +108,7 @@ public class Company {
     @Column(nullable = false)
     private boolean featured = false;
 
-    // 스팟라이트 '관리자 수동 고정(pin)' 여부. 이름과 달리 "메인에 노출 중"이라는 뜻이 아니다 —
-    // 요금제 자격으로 노출되는 회사는 이 값이 false 인 채로 메인에 뜬다(자격은 구독에서 조회 시점에 파생).
-    // 이 플래그는 요금제 밖에서 노출해야 하는 회사(제휴·이벤트 등)를 관리자가 꽂는 통로다.
+    // 스팟라이트 '관리자 수동 고정(pin)' 여부. 켜면 메인 스팟라이트 레일 후보가 된다(삭제·비공개면 빠진다).
     // 노출 여부의 최종 판단은 ShowcaseCardRepository 한 곳에 있다.
     @Column(nullable = false)
     private boolean spotlight = false;
@@ -263,7 +260,7 @@ public class Company {
         this.spotlightOrder = spotlightOrder;
     }
 
-    // 수동 고정 해제. 순서값도 초기화한다. (요금제 자격으로 노출되던 회사라면 해제 후에도 계속 노출된다)
+    // 수동 고정 해제. 순서값도 초기화한다.
     public void turnOffSpotlight() {
         this.spotlight = false;
         this.spotlightOrder = 0;
@@ -272,11 +269,6 @@ public class Company {
     // 고정 유지한 채 순서만 변경
     public void changeSpotlightOrder(int spotlightOrder) {
         this.spotlightOrder = spotlightOrder;
-    }
-
-    // 등급 정책에 따라 브랜드 컬러를 강제 지정한다. (커스텀 불가 등급의 기본값 고정 등)
-    public void changeBrandColor(String brandColor) {
-        this.brandColor = brandColor;
     }
 
     // ===== 관리자 운영 플래그 직접 지정 (set-to-state) =====

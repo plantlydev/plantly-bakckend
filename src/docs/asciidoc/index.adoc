@@ -427,8 +427,8 @@ include::{snippets}/company-draft-delete/http-response.adoc[]
 
 정렬은 스팟라이트 고정 → 추천 → 최신 순으로 고정이며, 결과는 요약 카드 형태로 페이징됩니다.
 
-NOTE: 카드의 `spotlight` 는 *관리자가 수동으로 고정(pin)했는지* 를 뜻하며, 메인 화면 노출 여부가 아닙니다.
-요금제 자격으로 메인에 노출되는 회사는 이 값이 `false` 입니다. 메인 화면 노출 목록은 <<company-showcase>> 를 사용하세요.
+NOTE: 카드의 `spotlight` 는 *관리자가 수동으로 고정(pin)했는지* 를 뜻합니다. 메인 화면 노출 목록은 플래그로 거르지 말고
+<<company-showcase>> 를 사용하세요(자리 수만큼 자르는 것은 서버가 정합니다).
 
 ==== 요청
 
@@ -453,14 +453,9 @@ include::{snippets}/company-search/response-fields.adoc[]
 
 응답은 페이지가 아니라 *자리 수만큼의 고정 리스트* 라 `pageInfo` 가 없습니다. 각 영역의 자리 수는 서버 설정값입니다.
 
-*스팟라이트 영역에 담기는 회사*
+*스팟라이트 영역* 은 관리자가 고정(pin)한 회사(`spotlight = true`)이며, 관리자가 정한 순서(`spotlightOrder`)대로 담깁니다.
 
-* *요금제 자격* — 유료 활성 구독(`PREMIUM`/`ENTERPRISE`, 미만료). 관리자 조작 없이 자동으로 포함되고,
-  구독이 만료되면 자동으로 빠집니다. 체험(`TRIAL`)과 관리자 등록(`ADMIN_EXEMPT`)은 포함되지 않습니다.
-* *관리자 고정(pin)* — `spotlight = true`. 요금제와 무관하게 노출해야 하는 제휴·이벤트용 통로이며,
-  자격분보다 앞에 배치됩니다.
-
-*추천 영역* 은 등급과 무관한 순수 관리자 큐레이션(`featured = true`)입니다.
+*추천 영역* 은 순수 관리자 큐레이션(`featured = true`)입니다.
 
 두 영역에 같은 회사가 함께 나올 수 있습니다(고정 + 추천). 의도된 동작이므로 프론트에서 중복 제거하지 않습니다.
 
@@ -1066,7 +1061,7 @@ NOTE: 입력값 검증 실패(400)는 <<company-create>> 와 동일한 형태입
 
 다음 조건으로 좁힐 수 있으며, *지정한 것만 AND(교집합)* 로 적용됩니다(미지정 = 상관없음):
 
-* *상태 필터* (`verified`/`featured`/`spotlight`): `true`/`false` 로 해당 값만. 생략하면 그 축은 무시됩니다. 예) `verified=true&featured=true` 면 둘 다 참인 회사만(스팟라이트는 무관). `spotlight` 는 *수동 고정(pin)* 축이라, 요금제 자격으로 메인에 노출 중인 회사는 `spotlight=false` 로 잡힙니다.
+* *상태 필터* (`verified`/`featured`/`spotlight`): `true`/`false` 로 해당 값만. 생략하면 그 축은 무시됩니다. 예) `verified=true&featured=true` 면 둘 다 참인 회사만(스팟라이트는 무관).
 * *삭제 필터* (`deleted`): 생략하면 삭제 포함 전체, `true` 면 삭제된 회사만, `false` 면 활성 회사만.
 * *회사명* (`companyName`): 부분일치.
 * *소유자* (`ownerUserId`): 소유 유저 ID 정확 일치(미연동 회사는 제외됨).
@@ -1195,11 +1190,7 @@ include::{snippets}/admin-company-update-visibility/response-fields.adoc[]
 
 셋 다 등록 시 `false` 로 시작하며, 요청은 *sparse* 입니다 — 보낸 필드만 목표값(`true`/`false`)으로 설정하고 생략한 필드는 그대로 둡니다. 목표 상태를 지정하는 *멱등* 요청이라 같은 값으로 여러 번 보내도 안전합니다. (이 플래그들은 검색 도큐먼트가 아니라 회사 원본에서 정렬에 쓰이므로 재색인이 필요 없습니다.)
 
-IMPORTANT: `spotlight` 는 *메인 노출을 켜는 스위치가 아니라 수동 고정(pin)* 입니다. 유료 고객(`PREMIUM`/`ENTERPRISE`)은
-이 플래그를 켜지 않아도 구독만으로 메인에 노출되며(<<company-showcase>>), 구독이 끝나면 자동으로 빠집니다.
-따라서 *유료 계약 고객에게는 이 플래그를 쓰지 마세요*.
-pin 은 요금제 밖에서 노출해야 하는 제휴·이벤트용이며, 켜 두면 구독과 무관하게 계속 노출되고 자동으로 꺼지지 않습니다.
-이 구분을 지켜야 나중에 "돈 낸 고객"과 "무료로 띄워준 곳"을 데이터로 구별할 수 있습니다.
+`spotlight` 는 *수동 고정(pin)* 입니다. 켜면 메인 스팟라이트 영역(<<company-showcase>>) 후보가 되고, 끌 때까지 자동으로 꺼지지 않습니다.
 
 include::{snippets}/admin-company-flags/http-request.adoc[]
 

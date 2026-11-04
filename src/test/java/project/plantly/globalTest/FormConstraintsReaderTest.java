@@ -81,9 +81,9 @@ class FormConstraintsReaderTest {
             assertThat(valueOf(response, "contacts", "maxItems"))
                     .isEqualTo(CompanyConstraints.CONTACTS_MAX);
             assertThat(valueOf(response, "images", "maxItems"))
-                    .isEqualTo(CompanyConstraints.DETAIL_IMAGES_CEILING);
+                    .isEqualTo(CompanyConstraints.DETAIL_IMAGES_MAX);
             assertThat(valueOf(response, "categoryIds", "maxItems"))
-                    .isEqualTo(CompanyConstraints.CATEGORIES_CEILING);
+                    .isEqualTo(CompanyConstraints.CATEGORIES_MAX);
 
             assertThat(rule(field(response, "contacts"), "maxLength")).isNull();
         }
@@ -211,7 +211,7 @@ class FormConstraintsReaderTest {
             FieldConstraints imageUrls = field(field(response, "references").items(), "imageUrls");
 
             assertThat(rule(imageUrls, "maxItems").value())
-                    .isEqualTo(CompanyConstraints.REFERENCE_IMAGES_CEILING);
+                    .isEqualTo(CompanyConstraints.REFERENCE_IMAGES_MAX);
             assertThat(rule(imageUrls.items(), "maxLength").value()).isEqualTo(CompanyConstraints.URL_MAX);
         }
 

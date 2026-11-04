@@ -45,7 +45,7 @@ public class SeedAccountFactory {
                 save("U4", "suspended@plantly.local", "정지원", "010-1000-0004", UserRole.MEMBER, UserStatus.SUSPENDED,
                         "정지 계정. 로그인이 막혀야 한다"),
                 save("A1", "admin@plantly.local", "관리자", "010-1000-0005", UserRole.ADMIN, UserStatus.ACTIVE,
-                        "관리자. 관리자 목록·플래그·복구·구독 변경")
+                        "관리자. 관리자 목록·플래그·복구")
         );
         log.info("[seed] 계정 {}개 생성", accounts.all().size());
         return accounts;

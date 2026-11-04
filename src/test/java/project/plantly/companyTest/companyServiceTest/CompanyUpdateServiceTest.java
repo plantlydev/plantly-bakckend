@@ -204,7 +204,7 @@ class CompanyUpdateServiceTest {
 
         @Test
         @DisplayName("videoUrl·brandColor 를 요청한 대로 저장하고 재동기화한다")
-        void basicInfo_storedWithoutGradeGate() {
+        void basicInfo_storedAsRequested() {
             Company company = givenOwnedCompany();
 
             service.updateBasicInfoByUser(COMPANY_ID, OWNER_ID, basicInfo("https://youtu.be/x", "#FF0000"));

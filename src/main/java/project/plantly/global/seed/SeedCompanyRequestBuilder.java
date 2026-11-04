@@ -11,7 +11,6 @@ import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.enums.ImageType;
 import project.plantly.domain.company.enums.PricingType;
 import project.plantly.domain.company.enums.TrlLevel;
-import project.plantly.domain.company.policy.GradePolicy;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -24,9 +23,9 @@ import java.util.stream.IntStream;
  * <p>기본값은 "평범하게 잘 채워진 회사"이고, 각 케이스는 자기가 증명하려는 축만 덮어쓴다. 그래야 케이스
  * 목록을 읽을 때 무엇이 그 케이스의 본질인지가 한눈에 보인다.
  *
- * <p>{@link #limitTo(GradePolicy)} 는 등급 한도에 맞춰 컬렉션 크기를 줄인다. 자가등록(FREE) 경로는 정책이
- * 실제로 발화하므로 이걸 안 맞추면 등록 자체가 거부된다. 관리자 등록은 면제라 거부되진 않지만, 등급별
- * 화면 차이를 보려면 데이터도 그 등급처럼 보여야 하므로 동일하게 맞춘다.
+ * <p>모양은 둘이다. 기본값은 최소한으로 채운 회사(카테고리 1, 상세이미지 3, 동영상 없음)이고,
+ * {@link #filled(SeedMasterCatalog)} 는 잘 채운 회사다. 둘을 섞어 써야 목록 카드가 한 가지 모양으로만 보이지 않는다.
+ * 한도는 등록 경로와 무관하게 {@code CompanyConstraints} 하나라, 어느 모양이든 그 안에 있으면 등록된다.
  */
 public class SeedCompanyRequestBuilder {
 
@@ -81,16 +80,16 @@ public class SeedCompanyRequestBuilder {
         this.detailAddress = SeedVocabulary.detailAddress(index);
         this.website = SeedVocabulary.website(index);
         this.logoUrl = SeedVocabulary.logoUrl(index);
-        // 커버는 등급 무관(게이트 없음)이라 videoUrl 과 달리 limitTo 를 기다리지 않고 여기서 채운다.
+        // 커버는 선택 필드지만 기본 모양에도 채운다 — 없는 경우는 withoutCoverStyling 이 의도적으로 만든다.
         this.coverImageUrl = SeedVocabulary.coverImageUrl(index);
         this.introTitle = SeedVocabulary.introTitle(index);
         this.content = SeedVocabulary.content(index);
         this.trlLevel = TrlLevel.values()[Math.floorMod(index, TrlLevel.values().length)];
-        this.videoUrl = null; // 등급이 허용할 때만 limitTo 가 채운다
+        this.videoUrl = null; // 최소 모양에는 동영상이 없다. filled() 가 채운다
         this.leadTime = SeedVocabulary.leadTime(index);
         this.asInfo = SeedVocabulary.asInfo(index);
         this.pricingType = PricingType.values()[Math.floorMod(index, PricingType.values().length)];
-        // brandColor 도 쓰기 게이트가 없어져 커버와 같은 자리로 왔다 — 전 등급이 값을 갖는다.
+        // brandColor 도 커버와 같이 기본으로 채운다.
         // 색이 없는 케이스는 withoutCoverStyling / withoutOptionalFields 가 의도적으로 만든다(프론트 폴백 확인용).
         this.brandColor = SeedVocabulary.brandColor(index);
 
@@ -115,14 +114,14 @@ public class SeedCompanyRequestBuilder {
     }
 
     /**
-     * 등급 한도에 맞춰 컬렉션·선택 필드를 채운다. 카테고리는 상한만큼 넉넉히 붙여서, 등급이 올라가면
-     * 카드에 더 많은 배지가 보인다는 사실 자체가 화면으로 드러나게 한다.
+     * 잘 채운 회사 모양: 카테고리 5, 상세이미지 6, 동영상, 레퍼런스 이미지 4. 케이스 회사의 출발점이고,
+     * 케이스는 여기서 자기가 증명하려는 축만 덮어쓴다. 입력 상한까지 채운 모양은 C21 이 따로 만든다.
      */
-    public SeedCompanyRequestBuilder limitTo(GradePolicy policy, SeedMasterCatalog masters) {
-        this.categoryIds = masters.categoryIds(index, policy.maxCompanyCategories());
-        this.images = detailImages(Math.min(policy.maxDetailImages(), 6));
-        this.videoUrl = policy.videoAllowed() ? SeedVocabulary.videoUrl(index) : null;
-        this.references = List.of(reference(Math.min(policy.maxReferenceImages(), 4)));
+    public SeedCompanyRequestBuilder filled(SeedMasterCatalog masters) {
+        this.categoryIds = masters.categoryIds(index, 5);
+        this.images = detailImages(6);
+        this.videoUrl = SeedVocabulary.videoUrl(index);
+        this.references = List.of(reference(4));
         return this;
     }
 

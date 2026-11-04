@@ -79,7 +79,6 @@ public class AdminCompanyController {
     }
 
     // ===== 관리자 수정 — 소유 무관, 모든 회사 대상. 유저 수정과 동일한 변경/구조 불변식을 재사용한다. =====
-    // (등급 한도·변형 정책은 유저 경로와 동일하게 아직 미적용 — CompanyUpdateService 의 TODO 참고)
 
     @PatchMapping("/api/v1/admin/companies/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -166,7 +165,7 @@ public class AdminCompanyController {
 
     @PutMapping("/api/v1/admin/companies/{id}/images")
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<Void> replaceGalleryImagesByAdmin(@PathVariable Long id, @Valid @RequestBody @Size(max = CompanyConstraints.DETAIL_IMAGES_CEILING, message = "상세 이미지는 30장을 넘을 수 없습니다.")
+    public ApiResponse<Void> replaceGalleryImagesByAdmin(@PathVariable Long id, @Valid @RequestBody @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.")
                     List<@NotNull(message = "이미지 항목은 비어 있을 수 없습니다.") ImageRequest> images) {
         companyUpdateService.replaceGalleryImagesByAdmin(id, images);
         return ApiResponse.ok();
@@ -190,7 +189,7 @@ public class AdminCompanyController {
 
     @PutMapping("/api/v1/admin/companies/{id}/categories")
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<Void> replaceCategoriesByAdmin(@PathVariable Long id, @RequestBody @Size(max = CompanyConstraints.CATEGORIES_CEILING, message = "카테고리는 10개를 넘을 수 없습니다.")
+    public ApiResponse<Void> replaceCategoriesByAdmin(@PathVariable Long id, @RequestBody @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.")
                     List<@NotNull(message = "카테고리 항목은 비어 있을 수 없습니다.") Long> categoryIds) {
         companyUpdateService.replaceCategoriesByAdmin(id, categoryIds);
         return ApiResponse.ok();

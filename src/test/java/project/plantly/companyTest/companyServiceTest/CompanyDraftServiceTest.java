@@ -226,7 +226,7 @@ class CompanyDraftServiceTest {
         }
 
         @Test
-        @DisplayName("이어쓸 인증(신원 3종·초기 등급·한도)을 함께 실어 재인증 없이 폼을 그리게 한다")
+        @DisplayName("이어쓸 인증(식별자·신원 3종)을 함께 실어 재인증 없이 폼을 그리게 한다")
         void includesResumableVerification() {
             givenVerifiedBusinessNumber();
             givenDraftStored();

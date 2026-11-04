@@ -22,7 +22,7 @@ public record AdminCompanySummary(
         boolean verified,       // 에디터 선정 배지(관리자 큐레이션). 국세청 확인은 아래 businessVerified 다
         boolean businessVerified,
         boolean featured,       // 추천 레일 노출. 순수 관리자 큐레이션이라 끄면 바로 레일에서 빠진다
-        // 스팟라이트 '수동 고정(pin)'. 유료 등급 회사는 이 값이 false 여도 구독만으로 스팟라이트에 오른다(ShowcaseCardRepository).
+        // 스팟라이트 '수동 고정(pin)'. 켜져 있으면 메인 스팟라이트 레일 후보다(ShowcaseCardRepository).
         boolean spotlight,
         // ----- 운영 필드 (관리자 전용) -----
         boolean deleted,

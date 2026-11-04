@@ -67,7 +67,7 @@ public class CompanyDraftService {
 
     /**
      * 재진입 시 폼 복원용. 저장된 초안이 없으면 404.
-     * 이어쓸 인증(신원 3종·초기 등급·한도)을 함께 실어, 클라이언트가 재인증 없이 폼을 다시 그리게 한다.
+     * 이어쓸 인증(식별자·신원 3종)을 함께 실어, 클라이언트가 재인증 없이 폼을 다시 그리게 한다.
      */
     @Transactional(readOnly = true)
     public CompanyDraftResponse get(Long userId, String rawBusinessNumber) {

@@ -8,22 +8,18 @@ import project.plantly.domain.company.dto.CompanyCreateRequest;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.entity.Address;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyVerification;
 import project.plantly.domain.company.entity.link.CompanyMember;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.global.exception.BusinessException;
 import project.plantly.domain.company.policy.CompanyPolicyView;
 import project.plantly.domain.company.policy.CompanyRegistrationPolicy;
-import project.plantly.domain.company.policy.InitialSubscriptionPolicy;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyMemberRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.repository.CompanySubscriptionRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.search.CompanySearchDocumentWriter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -46,9 +42,6 @@ public class CompanyService {
     // 임시저장 초안. 발행이 성공하면 소임을 다한 초안을 같은 트랜잭션에서 제거한다.
     private final CompanyDraftRepository draftRepository;
 
-    // 회사 구독. 등록 시 회사의 초기 구독(등급)을 1건 저장한다. 정책은 이 구독의 등급을 참조한다.
-    private final CompanySubscriptionRepository companySubscriptionRepository;
-
     // 검색 동기화. 본체·자식·링크 저장 후 비정규화 검색 도큐먼트와 카테고리 closure 를 재생성한다.
     private final CompanySearchDocumentWriter searchDocumentWriter;
 
@@ -56,13 +49,9 @@ public class CompanyService {
     // 새 정책은 CompanyRegistrationPolicy 구현 @Component 추가만으로 자동 합류한다.
     private final List<CompanyRegistrationPolicy> registrationPolicies;
 
-    // 자가등록 회사의 초기 등급/구독 결정. 인증 발급 경로도 같은 정책을 읽어 폼에 한도를 안내하므로,
-    // 여기서 등급을 직접 만들지 않고 정책에 물어본다(폼이 안내한 한도와 서버 검증이 어긋날 수 없게).
-    private final InitialSubscriptionPolicy initialSubscriptionPolicy;
-
     // 유저 자가등록: 선행 인증을 소비해 신원 3종을 채우고, 등록 즉시 소유자 = 본인 + 사업자 인증 완료 상태가 된다.
-    // 초기 구독(등급)은 InitialSubscriptionPolicy 가 인증을 보고 결정하며, 그 한도로 등록 정책이 적용된다.
-    // 인증 발급 응답이 같은 정책으로 계산한 한도를 이미 폼에 내려주므로, 여기서 거부되는 건 폼을 우회한 요청뿐이다.
+    // 컬렉션 한도는 등록 경로와 무관하게 하나다(CompanyConstraints). 폼이 같은 값을 제약 조회 API 로 받아
+    // 안내하므로, 여기서 거부되는 건 폼을 우회한 요청뿐이다.
     //
     // 관리자 등록과 달리 이 경로만 인증을 요구하는 이유: 자가등록은 사용자가 레코드를 직접 작성하므로
     // 사업자번호와 회사명이 어긋날 수 없다. 반면 관리자가 대신 등록한 회사는 대조할 앵커가 없어
@@ -80,8 +69,7 @@ public class CompanyService {
                 request.introTitle(), request.content(), request.trlLevel(), request.videoUrl(), request.leadTime(), request.asInfo(), request.pricingType(), request.brandColor());
         company.markBusinessVerified(verification.getVerifiedAt());
 
-        Long companyId = persist(company, request,
-                initialSubscriptionPolicy.initialSubscription(verification, LocalDate.now()));
+        Long companyId = persist(company, request);
 
         // 인증을 소비 처리해 재사용을 막는다. 같은 인증으로 여러 회사를 만들 수 없다.
         verification.consume(companyId);
@@ -120,7 +108,7 @@ public class CompanyService {
     }
 
     // 관리자 등록: 소유자 미연동(userId=null) 상태로 시작. registeredBy = 등록한 admin id.
-    // 구독은 등급 한도 면제(ADMIN_EXEMPT)로 시작한다.
+    // 한도는 자가등록과 같다 — 관리자라고 더 넣을 수 있는 경로는 없다.
     @Transactional
     public Long createByAdmin(Long adminId, CompanyCreateRequest request) {
         Company company = Company.createByAdmin(
@@ -130,12 +118,12 @@ public class CompanyService {
                 request.website(), request.logoUrl(), request.coverImageUrl(),
                 request.introTitle(), request.content(), request.trlLevel(), request.videoUrl(), request.leadTime(), request.asInfo(), request.pricingType(), request.brandColor());
 
-        return persist(company, request, CompanySubscription.adminExempt(LocalDate.now()));
+        return persist(company, request);
     }
 
-    // 공통 코어: 등록 정책 일괄 검증 후, 본체 INSERT(=id 확보) → 구독·부속(자식/링크)을 같은 트랜잭션으로 저장한다.
-    // 정책은 아직 저장 전인 company 와 subscription(등급 출처)을 받아 검증/변형한다. throw 시 아무것도 영속화되지 않는다.
-    private Long persist(Company company, CompanyCreateRequest request, CompanySubscription subscription) {
+    // 공통 코어: 등록 정책 일괄 검증 후, 본체 INSERT(=id 확보) → 부속(자식/링크)을 같은 트랜잭션으로 저장한다.
+    // 정책은 아직 저장 전인 company 와 요청을 받아 검증/변형한다. throw 시 아무것도 영속화되지 않는다.
+    private Long persist(Company company, CompanyCreateRequest request) {
         // 등록 시 선택한 공개 범위 반영(미지정이면 엔티티 기본값 PUBLIC 유지). 시스템 플래그와 동일하게 도메인 행위로만 설정.
         if (request.visibility() != null) {
             company.changeVisibility(request.visibility());
@@ -159,9 +147,6 @@ public class CompanyService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
         }
-        // 본체 저장으로 확보한 id 로 구독을 회사에 연결(1:1)해 저장한다.
-        subscription.assignCompany(company.getId());
-        companySubscriptionRepository.save(subscription);
 
         childWriter.write(company, request);
         linkWriter.write(company, request);

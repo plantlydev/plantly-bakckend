@@ -5,8 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.policy.GradePolicyRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +32,6 @@ public class SeedDraftCases {
     private final SeedVerificationFactory verifications;
     private final SeedCompanyFactory companies;
     private final SeedMasterCatalog masters;
-    private final GradePolicyRegistry gradePolicyRegistry;
 
     public Result create(SeedAccounts accounts) {
         List<SeedDraftRef> refs = new ArrayList<>();
@@ -141,10 +138,9 @@ public class SeedDraftCases {
                 SeedVocabulary.ceoName(index), SeedVocabulary.establishmentDate(index));
     }
 
-    /** 자가등록은 FREE 로만 시작하므로 발행 가능한 초안도 FREE 한도를 지켜야 실제로 발행된다. */
+    /** 발행 가능한 초안. 최소 모양 그대로라 입력 상한(CompanyConstraints) 안에 있어 실제로 발행된다. */
     private SeedCompanyRequestBuilder publishableBuilder(int index) {
-        return SeedCompanyRequestBuilder.of(index, masters)
-                .limitTo(gradePolicyRegistry.of(CompanyGrade.FREE), masters);
+        return SeedCompanyRequestBuilder.of(index, masters);
     }
 
     private MyCompanyCreateRequest fullPayload(Long verificationId, int index) {

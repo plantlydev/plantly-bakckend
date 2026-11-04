@@ -62,10 +62,8 @@ final class SeedManifestMarkdown {
 
     private static void renderCompanies(StringBuilder out, List<SeedManifest.CompanyRow> companies) {
         out.append("## 회사\n\n");
-        out.append("`effectiveGrade` 는 저장값이 아니라 구독의 등급·상태·만료일에서 파생됩니다 — ")
-                .append("`grade` 와 다른 행(C13)이 그 파생이 동작하는지 보여주는 표본입니다.\n\n");
-        out.append("| 코드 | id | 회사명 | 공개 | 등록 | 소유 | 등급 | 상태 | 만료 | 유효등급 | 플래그 | 확인 대상 |\n");
-        out.append("|---|---:|---|---|---|---|---|---|---|---|---|---|\n");
+        out.append("| 코드 | id | 회사명 | 공개 | 등록 | 소유 | 플래그 | 확인 대상 |\n");
+        out.append("|---|---:|---|---|---|---|---|---|\n");
 
         for (SeedManifest.CompanyRow company : companies) {
             out.append("| `").append(company.code()).append("` | ").append(company.id())
@@ -73,10 +71,6 @@ final class SeedManifestMarkdown {
                     .append(" | ").append("PUBLIC".equals(company.visibility()) ? "공개" : "비공개")
                     .append(" | ").append("USER".equals(company.registrationSource()) ? "자가" : "관리자")
                     .append(" | ").append(company.ownerCode() == null ? "—" : company.ownerCode())
-                    .append(" | ").append(nullToDash(company.grade()))
-                    .append(" | ").append(nullToDash(company.subscriptionStatus()))
-                    .append(" | ").append(nullToDash(company.expiresAt()))
-                    .append(" | ").append(nullToDash(company.effectiveGrade()))
                     .append(" | ").append(flags(company))
                     .append(" | ").append(company.proves()).append(" |\n");
         }

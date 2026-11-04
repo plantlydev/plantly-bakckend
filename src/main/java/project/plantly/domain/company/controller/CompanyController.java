@@ -268,7 +268,7 @@ public class CompanyController {
 
     @PutMapping("/api/v1/companies/{id}/images")
     public ApiResponse<Void> replaceGalleryImages(@AuthenticationPrincipal UserPrincipal principal,
-                                                  @PathVariable Long id, @Valid @RequestBody @Size(max = CompanyConstraints.DETAIL_IMAGES_CEILING, message = "상세 이미지는 30장을 넘을 수 없습니다.")
+                                                  @PathVariable Long id, @Valid @RequestBody @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.")
                     List<@NotNull(message = "이미지 항목은 비어 있을 수 없습니다.") ImageRequest> images) {
         companyUpdateService.replaceGalleryImagesByUser(id, principal.getUser().getId(), images);
         return ApiResponse.ok();
@@ -292,7 +292,7 @@ public class CompanyController {
 
     @PutMapping("/api/v1/companies/{id}/categories")
     public ApiResponse<Void> replaceCategories(@AuthenticationPrincipal UserPrincipal principal,
-                                               @PathVariable Long id, @RequestBody @Size(max = CompanyConstraints.CATEGORIES_CEILING, message = "카테고리는 10개를 넘을 수 없습니다.")
+                                               @PathVariable Long id, @RequestBody @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.")
                     List<@NotNull(message = "카테고리 항목은 비어 있을 수 없습니다.") Long> categoryIds) {
         companyUpdateService.replaceCategoriesByUser(id, principal.getUser().getId(), categoryIds);
         return ApiResponse.ok();

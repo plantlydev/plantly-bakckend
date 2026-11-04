@@ -98,10 +98,10 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
         }
     }
 
-    // 동영상에는 노출 게이트가 없다. 시드 회사는 FREE 구독인데도 공개 조회에 저장값이 그대로 나와야 한다
-    // (등급별 동영상 노출 제한이 폐지되었다).
+    // 동영상에는 노출 게이트가 없다. 저장된 값이 공개 조회에 그대로 나와야 한다
+    // (예전에는 등급에 따라 가렸으나 등급 제도가 폐지되었다).
     @Test
-    @DisplayName("공개 조회는 구독 등급과 무관하게 저장된 videoUrl 을 내려준다")
+    @DisplayName("공개 조회는 저장된 videoUrl 을 그대로 내려준다")
     void publicView_showsStoredVideo() {
         CookieFilter owner = new CookieFilter();
         long ownerId = signUpMember(owner, "owner-video-free@example.com");
