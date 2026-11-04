@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * <p>목적은 화면을 채우는 것이 아니라 <b>프론트-백엔드 계약·페이지네이션·권한</b>을 실제 응답으로 확인하는
  * 것이다. 그래서 데이터의 단위가 "행 수"가 아니라 "케이스"다 — 공개/비공개, 관리자등록/자가등록,
- * 발행/임시저장, 등급 5종과 만료·체험, 삭제·미인증까지 각 행이 무엇을 증명하는지 이름을 갖는다.
+ * 발행/임시저장, 검수·추천·스팟라이트 고정, 삭제·미인증까지 각 행이 무엇을 증명하는지 이름을 갖는다.
  *
  * <p>회사 생성은 항상 {@code CompanyService} 의 실제 등록 경로를 탄다. 인증 소비·초안 삭제·소유자
  * 멤버십·검색 도큐먼트 동기화가 실서비스와 동일하게 일어나야, 여기서 만든 데이터로 확인한 화면이
@@ -41,12 +41,13 @@ public class FakeDataSeedRunner implements ApplicationRunner {
     static final int ORDER = 100;
 
     /**
-     * U1 이 즐겨찾기할 계약 케이스 회사. 등급 5종과 구독 상태 파생(만료·임박·체험)이 들어 있어,
-     * 즐겨찾기 목록에서도 카드가 등급별로 다르게 그려지는지 확인할 수 있다.
+     * U1 이 즐겨찾기할 계약 케이스 회사. 스팟라이트 고정·검수·추천 조합이 섞여 있어,
+     * 즐겨찾기 목록에서도 카드 배지가 플래그별로 다르게 그려지는지 확인할 수 있다.
      * 모두 공개·미삭제·관리자 등록이라 "남의 회사를 찜한다"는 실제 흐름과도 어긋나지 않는다.
+     * (C13 은 비공개라 뺀다 — 찜 목록에서도 가려져, 넣으면 저장 건수와 화면 건수가 어긋난다.)
      */
     private static final Set<String> FAVORITE_CASE_CODES = Set.of(
-            "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19");
+            "C08", "C09", "C10", "C11", "C12", "C14", "C15", "C16", "C17", "C18", "C19");
 
     private final NtsClient ntsClient;
     private final SeedProperties properties;
@@ -93,7 +94,7 @@ public class FakeDataSeedRunner implements ApplicationRunner {
 
         favorites.create(accounts.owner1(), favoriteTargets(companies, paddingResult));
 
-        // 소프트 삭제·구독 교체·운영 플래그는 등록 이후에 엔티티를 직접 바꾼 것이라 검색 도큐먼트에 반영돼
+        // 소프트 삭제·운영 플래그는 등록 이후에 엔티티를 직접 바꾼 것이라 검색 도큐먼트에 반영돼
         // 있지 않다. 전체 재색인으로 한 번에 맞춘다. (backfillAll 은 지금까지 호출부가 없던 메서드다)
         searchDocumentWriter.backfillAll();
 
@@ -108,7 +109,7 @@ public class FakeDataSeedRunner implements ApplicationRunner {
                 System.currentTimeMillis() - startedAt);
     }
 
-    /** 관리자 등록 패딩 전부 + 등급·구독 상태 케이스. 합쳐서 즐겨찾기 목록이 두 페이지 이상 나온다. */
+    /** 관리자 등록 패딩 전부 + 플래그 케이스. 합쳐서 즐겨찾기 목록이 두 페이지 이상 나온다. */
     private List<Long> favoriteTargets(List<SeedCompanyRef> companies, SeedPadding.Result paddingResult) {
         List<Long> targets = new ArrayList<>(paddingResult.adminRegistered().stream()
                 .map(SeedCompanyRef::companyId)

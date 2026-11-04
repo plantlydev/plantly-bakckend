@@ -4,11 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-import project.plantly.domain.company.enums.CompanyGrade;
-import project.plantly.domain.company.enums.SubscriptionStatus;
-import project.plantly.domain.company.policy.GradePolicyRegistry;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,23 +36,15 @@ public class SeedPadding {
     /** 관리자 등록 패딩 수. 공개 목록 정족수(케이스 공개분 + 이 수 >= 41)를 맞춘다. */
     private static final int ADMIN_COUNT = 12;
 
-    // 패딩에도 등급을 섞어야 목록 카드가 한 가지 모양으로만 보이지 않는다.
-    // 부수 효과: PREMIUM/ENTERPRISE 로 배정되는 절반(6건)은 유료 활성 구독이라 메인 스팟라이트 후보가 된다.
-    // 자리(5칸)를 훨씬 넘기므로 초과 상황이 시드만 올려도 재현된다(SeedCompanyCases 의 C18/C19 근처 주석 참고).
-    private static final List<CompanyGrade> ADMIN_GRADES = List.of(
-            CompanyGrade.BASIC, CompanyGrade.STANDARD, CompanyGrade.PREMIUM, CompanyGrade.ENTERPRISE);
-
     private final SeedCompanyFactory companies;
     private final SeedVerificationFactory verifications;
     private final SeedMasterCatalog masters;
-    private final GradePolicyRegistry gradePolicyRegistry;
 
     public Result create(SeedAccounts accounts) {
         List<SeedCompanyRef> owned = new ArrayList<>();
         List<SeedCompanyRef> adminRegistered = new ArrayList<>();
         SeedAccount owner = accounts.owner1();
         Long adminId = accounts.admin().userId();
-        LocalDate today = LocalDate.now();
 
         for (int n = 1; n <= OWNED_COUNT; n++) {
             int index = SeedIndexes.forPadding(n);
@@ -67,9 +55,7 @@ public class SeedPadding {
                     SeedVocabulary.establishmentDate(index));
 
             Long companyId = companies.createByUser(owner.userId(),
-                    SeedCompanyRequestBuilder.of(index, masters)
-                            .limitTo(gradePolicyRegistry.of(CompanyGrade.FREE), masters)
-                            .buildMy(verificationId));
+                    SeedCompanyRequestBuilder.of(index, masters).buildMy(verificationId));
 
             owned.add(new SeedCompanyRef(code(n), companyId, owner.code(),
                     "정족수 패딩(U1 자가등록). /companies/my 페이지네이션과 공개 목록을 함께 채운다"));
@@ -78,17 +64,16 @@ public class SeedPadding {
         for (int n = 1; n <= ADMIN_COUNT; n++) {
             int sequence = OWNED_COUNT + n;
             int index = SeedIndexes.forPadding(sequence);
-            CompanyGrade grade = ADMIN_GRADES.get(Math.floorMod(n, ADMIN_GRADES.size()));
+            // 최소 모양과 잘 채운 모양을 번갈아 써서 목록 카드가 한 가지 모양으로만 보이지 않게 한다.
+            boolean filled = n % 2 == 0;
 
-            Long companyId = companies.createByAdmin(adminId,
-                    SeedCompanyRequestBuilder.of(index, masters)
-                            .businessNumber(SeedBusinessNumbers.paddingNumber(sequence))
-                            .limitTo(gradePolicyRegistry.of(grade), masters)
-                            .build());
-            companies.changeSubscription(companyId, grade, SubscriptionStatus.ACTIVE, today.plusYears(1));
+            SeedCompanyRequestBuilder builder = SeedCompanyRequestBuilder.of(index, masters)
+                    .businessNumber(SeedBusinessNumbers.paddingNumber(sequence));
+            Long companyId = companies.createByAdmin(adminId, (filled ? builder.filled(masters) : builder).build());
 
             adminRegistered.add(new SeedCompanyRef(code(sequence), companyId, null,
-                    "정족수 패딩(관리자 등록, " + grade + "). 공개 목록을 기본 size=20 기준 3페이지까지 채운다"));
+                    "정족수 패딩(관리자 등록, " + (filled ? "잘 채운 모양" : "최소 모양")
+                            + "). 공개 목록을 기본 size=20 기준 3페이지까지 채운다"));
         }
 
         log.info("[seed] 패딩 회사 {}건 생성 (U1 소유 {}, 관리자 등록 {})",

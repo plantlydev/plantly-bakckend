@@ -8,7 +8,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanySubscription;
 import project.plantly.domain.company.entity.CompanyVerification;
 import project.plantly.domain.company.entity.link.CompanyCategory;
 import project.plantly.domain.company.enums.MemberRole;
@@ -16,14 +15,12 @@ import project.plantly.domain.company.repository.CompanyCategoryRepository;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyMemberRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.repository.CompanySubscriptionRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -51,7 +48,6 @@ public class SeedManifestWriter {
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final CompanyRepository companyRepository;
-    private final CompanySubscriptionRepository subscriptionRepository;
     private final CompanyVerificationRepository verificationRepository;
     private final CompanyDraftRepository draftRepository;
     private final CompanyMemberRepository memberRepository;
@@ -96,12 +92,10 @@ public class SeedManifestWriter {
     }
 
     private List<SeedManifest.CompanyRow> companyRows(List<SeedCompanyRef> refs) {
-        LocalDate today = LocalDate.now();
         List<SeedManifest.CompanyRow> rows = new ArrayList<>();
 
         for (SeedCompanyRef ref : refs) {
             Company company = companyRepository.findById(ref.companyId()).orElseThrow();
-            CompanySubscription subscription = subscriptionRepository.findByCompanyId(ref.companyId()).orElse(null);
             Long ownerUserId = memberRepository.findByCompanyIdAndRole(ref.companyId(), MemberRole.OWNER)
                     .map(member -> member.getUserId()).orElse(null);
 
@@ -116,11 +110,6 @@ public class SeedManifestWriter {
                     company.getRegistrationSource().name(),
                     ref.ownerCode(),
                     ownerUserId,
-                    subscription == null ? null : subscription.getGrade().name(),
-                    subscription == null ? null : subscription.getStatus().name(),
-                    subscription == null || subscription.getExpiresAt() == null
-                            ? null : subscription.getExpiresAt().toString(),
-                    subscription == null ? null : subscription.effectiveGrade(today).name(),
                     company.isDeleted(),
                     company.isVerified(),
                     company.isBusinessVerified(),
