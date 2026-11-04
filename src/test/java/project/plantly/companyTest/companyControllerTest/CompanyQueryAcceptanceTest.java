@@ -115,61 +115,6 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
                 .body("data.videoUrl", equalTo(CompanyAggregateSeeder.VIDEO_URL));
     }
 
-    // 컬렉션은 저장된 상태(active)만 읽는다. 이 두 테스트가 확인하는 건 "조회가 저장된 상태를 그대로 따르는가" 하나다.
-    @Nested
-    @DisplayName("꺼진 컬렉션 항목의 노출")
-    class HiddenCollectionItems {
-
-        @Test
-        @DisplayName("공개 조회는 꺼진 카테고리·갤러리 이미지를 응답에서 아예 제외한다")
-        void publicView_omitsHiddenItems() {
-            CookieFilter owner = new CookieFilter();
-            long ownerId = signUpMember(owner, "owner-hidden-public@example.com");
-            long companyId = seeder.seedCompanyWithHiddenItems(ownerId);
-
-            given()
-                    .when()
-                    .get("/api/v1/companies/{id}", companyId)
-                    .then()
-                    .statusCode(200)
-                    .body("data.categories.size()", equalTo(1))
-                    .body("data.categories[0].categoryName",
-                            equalTo(CompanyAggregateSeeder.HIDDEN_CASE_VISIBLE_CATEGORY))
-                    .body("data.galleryImages.size()", equalTo(1))
-                    .body("data.galleryImages[0].imageUrl",
-                            equalTo(CompanyAggregateSeeder.HIDDEN_CASE_VISIBLE_IMAGE_URL))
-                    // 빠진 게 아니라 '남은 것만' 내려간 것이므로, 남은 항목은 언제나 active=true 다.
-                    .body("data.categories[0].active", equalTo(true))
-                    .body("data.galleryImages[0].active", equalTo(true));
-        }
-
-        @Test
-        @DisplayName("소유자 조회는 꺼진 항목까지 전부 내려주되 active=false 로 구분한다")
-        void ownerView_includesHiddenItemsWithFlag() {
-            CookieFilter owner = new CookieFilter();
-            long ownerId = signUpMember(owner, "owner-hidden-private@example.com");
-            long companyId = seeder.seedCompanyWithHiddenItems(ownerId);
-
-            given()
-                    .filter(owner)
-                    .when()
-                    .get("/api/v1/companies/{id}/private", companyId)
-                    .then()
-                    .statusCode(200)
-                    // 지워버리면 소유자가 "데이터가 날아갔다"고 오해한다 — 저장은 살아 있다는 걸 보여줘야 한다.
-                    .body("data.profile.categories.size()", equalTo(2))
-                    .body("data.profile.galleryImages.size()", equalTo(2))
-                    // displayOrder 순이라 앞이 남은 것, 뒤가 꺼진 것이다.
-                    .body("data.profile.categories[0].active", equalTo(true))
-                    .body("data.profile.categories[1].active", equalTo(false))
-                    .body("data.profile.categories[1].categoryName",
-                            equalTo(CompanyAggregateSeeder.HIDDEN_CASE_HIDDEN_CATEGORY))
-                    .body("data.profile.galleryImages[1].active", equalTo(false))
-                    .body("data.profile.galleryImages[1].imageUrl",
-                            equalTo(CompanyAggregateSeeder.HIDDEN_CASE_HIDDEN_IMAGE_URL));
-        }
-    }
-
     @Nested
     @DisplayName("소유자 전용 조회 GET /api/v1/companies/{id}/private")
     class OwnerView {

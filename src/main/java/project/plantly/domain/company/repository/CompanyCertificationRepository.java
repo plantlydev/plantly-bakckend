@@ -11,7 +11,7 @@ public interface CompanyCertificationRepository extends JpaRepository<CompanyCer
 
     // 링크 + 인증 마스터를 한 번의 조회로 가져온다. (링크별 LAZY 로딩 N+1 회피)
     // 마스터만 뽑지 않고 링크째 반환하는 이유는 custom_name 때문이다 — '기타'(ETC) 링크가 화면에 뿌릴 이름은
-    // 마스터의 "기타"가 아니라 회사가 직접 적은 이름이고, 그 값은 링크에만 있다(카테고리의 active 와 같은 사정).
+    // 마스터의 "기타"가 아니라 회사가 직접 적은 이름이고, 그 값은 링크에만 있다.
     @Query("select l from CompanyCertification l join fetch l.certification where l.company.id = :companyId order by l.displayOrder, l.id")
     List<CompanyCertification> findLinksByCompanyId(@Param("companyId") Long companyId);
 

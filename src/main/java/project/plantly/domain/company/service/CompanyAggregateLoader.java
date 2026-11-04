@@ -48,25 +48,19 @@ class CompanyAggregateLoader {
         // 이미지는 한 번에 가져와 갤러리(projectReference == null)와 '대표 레퍼런스 표지 1장'으로 나눈다.
         // allImages 가 displayOrder 오름차순이라, 대표 레퍼런스의 첫 매칭이 곧 표지(썸네일)다.
         // (전체 이미지는 상세에 싣지 않는다 — 추후 '레퍼런스 더보기' 전용 조회로 분리)
-        //
-        // 갤러리는 꺼진 이미지까지 전부 담는다 — 공개 뷰가 걸러내고, 소유자/관리자 뷰는 회색으로 보여줘야 하므로
-        // '무엇이 꺼져 있는지'를 여기서 지우면 안 된다(어느 쪽을 줄지는 응답 계층이 정한다).
         List<CompanyImage> allImages = imageRepository.findByCompanyIdOrderByDisplayOrderAsc(companyId);
         List<CompanyImage> galleryImages = allImages.stream()
                 .filter(image -> image.getProjectReference() == null)
                 .toList();
-        // 표지는 갤러리와 달리 '여러 장 중 하나'가 아니라 단일 슬롯이라, 여기서 활성인 것만 골라 뷰 구분 없이 같은 값을 준다.
-        // 꺼진 이미지를 표지로 세우면 공개 화면에 그대로 나가고, 소유자 화면에도 회색 처리할 자리가 없다(배지를 붙일 목록이 아니다).
-        // 레퍼런스 이미지의 개별 on/off 는 '레퍼런스 더보기' 조회가 생길 때 그 응답이 담당한다.
-        // 대표 레퍼런스의 이미지 전부(꺼진 것 포함). 소유자/관리자 응답만 쓴다 — 레퍼런스 수정이 전체 교체라
+        // 대표 레퍼런스의 이미지 전부. 소유자/관리자 응답만 쓴다 — 레퍼런스 수정이 전체 교체라
         // 수정 화면은 저장돼 있는 장을 전부 알아야 한다(표지 한 장만 알면 저장할 때 나머지를 지운다).
         List<CompanyImage> representativeReferenceImages = representativeReferenceId == null ? List.of()
                 : allImages.stream()
                         .filter(image -> image.getProjectReference() != null
                                 && representativeReferenceId.equals(image.getProjectReference().getId()))
                         .toList();
+        // 표지는 그중 첫 장(displayOrder 최소). 공개·소유자 뷰가 같은 값을 쓴다.
         CompanyImage representativeReferenceThumbnail = representativeReferenceImages.stream()
-                .filter(CompanyImage::isActive)
                 .findFirst()
                 .orElse(null);
 

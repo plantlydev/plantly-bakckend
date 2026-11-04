@@ -7,16 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.entity.Company;
-import project.plantly.domain.company.entity.CompanyImage;
-import project.plantly.domain.company.entity.link.CompanyCategory;
-import project.plantly.domain.company.enums.ImageType;
-import project.plantly.domain.company.repository.CompanyCategoryRepository;
-import project.plantly.domain.company.repository.CompanyImageRepository;
 import project.plantly.domain.company.repository.CompanyRepository;
-import project.plantly.domain.company.search.CompanySearchDocumentWriter;
 import project.plantly.domain.company.service.CompanyService;
-
-import java.util.List;
 
 /**
  * 회사 생성·상태 조정.
@@ -35,9 +27,6 @@ public class SeedCompanyFactory {
 
     private final CompanyService companyService;
     private final CompanyRepository companyRepository;
-    private final CompanyCategoryRepository companyCategoryRepository;
-    private final CompanyImageRepository imageRepository;
-    private final CompanySearchDocumentWriter searchDocumentWriter;
 
     /** 관리자 등록. 소유자 미연동(CompanyMember 0건)으로 시작한다. */
     public Long createByAdmin(Long adminId, CompanyCreateRequest request) {
@@ -66,36 +55,6 @@ public class SeedCompanyFactory {
     @Transactional
     public void softDelete(Long companyId) {
         load(companyId).delete();
-    }
-
-    /**
-     * 앞쪽 일부만 남기고 컬렉션을 비활성화(active=false)한다.
-     *
-     * <p>이 메서드가 필요한 이유는 검증 공백 때문이다. 프로덕션 경로에는 항목을 끄는 주체가 없어(등급 재조정이
-     * 폐지됐다) {@code active = false} 인 행이 한 건도 만들어지지 않는다. 그러면 조회·카드·색인에 넣어둔 active
-     * 필터가 전부 '한 번도 참이 아닌 조건'으로 남아 동작을 확인할 수 없다. active 플래그를 걷어낼 때 함께 지운다.
-     *
-     * <p>남기는 기준은 {@code displayOrder} 앞에서부터다. 등록·PUT 교체가 요청 순서를 그대로
-     * displayOrder 로 삼으므로, 이건 "사용자가 앞에 둔 것을 남긴다"는 뜻이 된다.
-     *
-     * <p>마지막에 검색 도큐먼트를 다시 쓴다. 카테고리 closure 는 active 인 링크만으로 재생성되므로, 이걸
-     * 빼먹으면 카드에서는 사라진 카테고리가 패싯 검색에는 계속 잡힌다.
-     */
-    @Transactional
-    public void deactivateOverflow(Long companyId, int keepCategories, int keepDetailImages) {
-        List<CompanyCategory> links = companyCategoryRepository.findLinksByCompanyId(companyId);
-        for (int i = keepCategories; i < links.size(); i++) {
-            links.get(i).changeActive(false);
-        }
-
-        List<CompanyImage> detailImages = imageRepository.findByCompanyIdOrderByDisplayOrderAsc(companyId).stream()
-                .filter(image -> image.getProjectReference() == null && image.getImageType() == ImageType.DETAIL)
-                .toList();
-        for (int i = keepDetailImages; i < detailImages.size(); i++) {
-            detailImages.get(i).changeActive(false);
-        }
-
-        searchDocumentWriter.write(companyId);
     }
 
     private Company load(Long companyId) {

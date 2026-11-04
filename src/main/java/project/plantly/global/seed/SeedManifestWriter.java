@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.company.entity.Company;
 import project.plantly.domain.company.entity.CompanyVerification;
-import project.plantly.domain.company.entity.link.CompanyCategory;
 import project.plantly.domain.company.enums.MemberRole;
 import project.plantly.domain.company.repository.CompanyCategoryRepository;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
@@ -99,8 +98,6 @@ public class SeedManifestWriter {
             Long ownerUserId = memberRepository.findByCompanyIdAndRole(ref.companyId(), MemberRole.OWNER)
                     .map(member -> member.getUserId()).orElse(null);
 
-            List<CompanyCategory> categoryLinks = companyCategoryRepository.findLinksByCompanyId(ref.companyId());
-
             rows.add(new SeedManifest.CompanyRow(
                     ref.code(),
                     company.getId(),
@@ -116,8 +113,7 @@ public class SeedManifestWriter {
                     company.isFeatured(),
                     company.isSpotlight(),
                     company.getSpotlightOrder(),
-                    categoryLinks.size(),
-                    (int) categoryLinks.stream().filter(CompanyCategory::isActive).count(),
+                    companyCategoryRepository.findLinksByCompanyId(ref.companyId()).size(),
                     ref.proves()));
         }
         return rows;

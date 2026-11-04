@@ -503,9 +503,6 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "galleryImages[].imageUrl").type(JsonFieldType.STRING).description("이미지 URL"),
                 fieldWithPath(p + "galleryImages[].imageType").type(JsonFieldType.STRING).description("이미지 타입"),
                 fieldWithPath(p + "galleryImages[].displayOrder").type(JsonFieldType.NUMBER).description("표시 순서"),
-                fieldWithPath(p + "galleryImages[].active").type(JsonFieldType.BOOLEAN)
-                        .description("공개 노출 여부. 공개 조회에서는 꺼진 이미지가 아예 빠지므로 항상 true 이고,"
-                                + " 소유자/관리자 조회에서만 false 가 나타난다(저장은 살아 있으나 등급 한도로 가려진 상태 → 회색 처리)"),
 
                 // 대표 레퍼런스 1건 + 표지 썸네일 (없으면 null)
                 fieldWithPath(p + "representativeReference").type(JsonFieldType.OBJECT).optional().description("대표 프로젝트 레퍼런스 (없으면 null)"),
@@ -525,9 +522,6 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "categories[].slug").type(JsonFieldType.STRING).description("카테고리 슬러그(URL slug)"),
                 fieldWithPath(p + "categories[].depth").type(JsonFieldType.NUMBER).description("계층 깊이"),
                 fieldWithPath(p + "categories[].iconUrl").type(JsonFieldType.STRING).optional().description("아이콘 URL"),
-                fieldWithPath(p + "categories[].active").type(JsonFieldType.BOOLEAN)
-                        .description("공개 노출 여부. galleryImages[].active 와 같은 규약 —"
-                                + " 공개 조회에서는 항상 true, 소유자/관리자 조회에서만 false 가 나타난다"),
 
                 fieldWithPath(p + "certifications").type(JsonFieldType.ARRAY).description("인증 목록"),
                 fieldWithPath(p + "certifications[].id").type(JsonFieldType.NUMBER).description("인증 ID"),
@@ -578,13 +572,11 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "deleted").type(JsonFieldType.BOOLEAN).description("소프트 삭제 여부"),
                 fieldWithPath(p + "visibility").type(JsonFieldType.STRING).description("공개 범위 (PUBLIC / PRIVATE)"),
                 fieldWithPath(p + "representativeReferenceImages").type(JsonFieldType.ARRAY)
-                        .description("대표 레퍼런스의 이미지 전부 (꺼진 것 포함, 표시 순서). profile 의 레퍼런스는 표지 한 장뿐이라,"
+                        .description("대표 레퍼런스의 이미지 전부 (표시 순서). profile 의 레퍼런스는 표지 한 장뿐이라,"
                                 + " 레퍼런스 전체 교체(PUT) 전에 수정 화면이 이 목록으로 채운다. 레퍼런스가 없으면 빈 배열"),
                 fieldWithPath(p + "representativeReferenceImages[].imageUrl").type(JsonFieldType.STRING).description("이미지 URL"),
                 fieldWithPath(p + "representativeReferenceImages[].imageType").type(JsonFieldType.STRING).description("이미지 타입 (PROJECT)"),
                 fieldWithPath(p + "representativeReferenceImages[].displayOrder").type(JsonFieldType.NUMBER).description("표시 순서"),
-                fieldWithPath(p + "representativeReferenceImages[].active").type(JsonFieldType.BOOLEAN)
-                        .description("공개 노출 여부. false = 저장돼 있으나 등급 한도를 넘겨 가려진 상태"),
                 fieldWithPath(p + "createdAt").type(JsonFieldType.STRING).description("생성 시각"),
                 fieldWithPath(p + "updatedAt").type(JsonFieldType.STRING).description("수정 시각")
         };

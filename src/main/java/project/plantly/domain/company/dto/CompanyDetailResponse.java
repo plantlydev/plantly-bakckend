@@ -19,9 +19,7 @@ public record CompanyDetailResponse(
     public static CompanyDetailResponse from(CompanyAggregate aggregate) {
         return new CompanyDetailResponse(
                 // 소유자/관리자 뷰는 관리 목적이라 개인화(좋아요/즐겨찾기 상태)를 담지 않는다.
-                // 마지막 true = 꺼진 항목도 전부 싣는다. 관리 화면은 "무엇이 저장돼 있고 그중 무엇이 지금
-                // 공개되지 않는가"를 보여줘야 하므로, 공개 뷰처럼 지워버리면 소유자가 사라진 줄 안다.
-                CompanyPublicResponse.from(aggregate, false, false, true),
+                CompanyPublicResponse.from(aggregate, false, false),
                 ManagementMeta.from(aggregate));
     }
 
@@ -43,7 +41,7 @@ public record CompanyDetailResponse(
             boolean deleted,
             CompanyVisibility visibility,   // 공개 범위(PUBLIC/PRIVATE). 소유자/관리자만 보는 운영 메타.
 
-            // 대표 레퍼런스의 이미지 전부(꺼진 것 포함, displayOrder 순). profile.representativeReference 는 공개 상세처럼
+            // 대표 레퍼런스의 이미지 전부(displayOrder 순). profile.representativeReference 는 공개 상세처럼
             // 표지 한 장(thumbnailUrl)만 준다 — 레퍼런스 수정은 전체 교체(PUT)라 수정 화면이 이 목록으로 채워야
             // 저장할 때 나머지 장이 지워지지 않는다. 레퍼런스가 없으면 빈 배열.
             List<GalleryImageResponse> representativeReferenceImages,

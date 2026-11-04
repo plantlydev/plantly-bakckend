@@ -122,28 +122,6 @@ class OwnedCompanyCardRepositoryTest extends PostgresContainerTest {
         });
     }
 
-    // 카드 프로젝션(CompanyCardSql.CARD_COLUMNS)은 공개 검색·내 회사·즐겨찾기·스팟라이트·관리자 목록이 공유한다.
-    // 여기서 한 번 확인하면 다섯 경로가 같은 기준을 쓰는 것이 보장된다.
-    @Test
-    @DisplayName("꺼진(active=false) 카테고리 링크는 카드의 카테고리 이름에서 빠진다")
-    void cardOmitsInactiveCategories() {
-        Company a = persistCompany(OWNER, "일부가려진회사");
-        Category kept = Category.createRoot("정밀가공", "MFG-P2", null, null, 0);
-        Category hidden = Category.createRoot("표면처리", "SURFACE2", null, null, 1);
-        em.persist(kept);
-        em.persist(hidden);
-        CompanyCategory inactiveLink = new CompanyCategory(a, hidden, 1);
-        inactiveLink.changeActive(false);
-        em.persist(new CompanyCategory(a, kept, 0));
-        em.persist(inactiveLink);
-        em.flush();
-
-        CompanySummary card = repository.findOwnedBy(OWNER, PageRequest.of(0, 20)).getContent().get(0);
-
-        // 링크는 두 건 다 살아 있지만 카드에는 켜진 것만 나온다(삭제가 아니라 노출 조정이라는 뜻).
-        assertThat(card.categoryNames()).containsExactly("정밀가공");
-    }
-
     @Test
     @DisplayName("페이지 크기를 넘으면 페이징되고 총 건수는 전체를 센다")
     void paginates() {

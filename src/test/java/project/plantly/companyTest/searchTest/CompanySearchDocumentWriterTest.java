@@ -71,40 +71,4 @@ class CompanySearchDocumentWriterTest extends PostgresContainerTest {
         assertThat(categoryIds).containsExactlyInAnyOrder(child.getId(), root.getId());
     }
 
-    @Test
-    @DisplayName("꺼진(active=false) 카테고리 링크는 조상까지 통째로 closure 에서 빠진다")
-    void excludesInactiveCategoryLinksFromClosure() {
-        // given: 서로 다른 대분류를 가진 두 갈래. 한쪽 링크만 끈다.
-        Category keptRoot = Category.createRoot("가공", "MACHINING", null, null, 0);
-        Category droppedRoot = Category.createRoot("표면처리", "SURFACE", null, null, 1);
-        em.persist(keptRoot);
-        em.persist(droppedRoot);
-        Category kept = Category.createChild(keptRoot, "정밀가공", "MACHINING-PRECISION", null, null, 0);
-        Category dropped = Category.createChild(droppedRoot, "도금", "SURFACE-PLATING", null, null, 0);
-        em.persist(kept);
-        em.persist(dropped);
-
-        Company company = Company.createByUser(2L, "2223344555", "플랜틀리둘", "김길동", null,
-                Address.of("06236", "서울 강남구", null, "테헤란로 2"), null, "http://logo2", null,
-                null, null, null, null, null, null, null, null);
-        em.persist(company);
-        CompanyCategory inactiveLink = new CompanyCategory(company, dropped, 1);
-        inactiveLink.changeActive(false);
-        em.persist(new CompanyCategory(company, kept, 0));
-        em.persist(inactiveLink);
-
-        // when
-        writer.write(company.getId());
-
-        // then: 꺼진 링크는 자기 자신뿐 아니라 그 조상(대분류)도 색인에 남기지 않는다.
-        // 남으면 카드에는 없는 카테고리로 패싯 검색을 했을 때 이 회사가 결과에 잡힌다.
-        List<Long> categoryIds = em.createNativeQuery(
-                        "SELECT category_id FROM company_category_closure WHERE company_id = :id")
-                .setParameter("id", company.getId())
-                .getResultList().stream()
-                .map(o -> ((Number) o).longValue())
-                .toList();
-        assertThat(categoryIds).containsExactlyInAnyOrder(kept.getId(), keptRoot.getId());
-        assertThat(categoryIds).doesNotContain(dropped.getId(), droppedRoot.getId());
-    }
 }

@@ -21,7 +21,7 @@ import java.util.List;
 // 연락처/레퍼런스는 하위 필드를 가진 컬렉션이라 초기 버전은 대표 1건만 상세에 싣는다(없으면 null).
 // representativeReferenceThumbnail 은 그 대표 레퍼런스의 표지 이미지 1장(displayOrder 최소)이다(없으면 null).
 //   공개 상세는 이 한 장만 싣는다(전체는 추후 '레퍼런스 더보기' 전용 조회로 분리).
-// representativeReferenceImages 는 같은 레퍼런스의 이미지 전부(꺼진 것 포함, displayOrder 순)다. 소유자/관리자
+// representativeReferenceImages 는 같은 레퍼런스의 이미지 전부(displayOrder 순)다. 소유자/관리자
 //   응답(meta)만 쓴다 — 레퍼런스 수정은 전체 교체(PUT)라, 수정 화면이 한 장만 알면 저장 순간 나머지가 지워진다.
 // 갤러리 이미지(projectReference == null)는 galleryImages 로 따로 담는다.
 public record CompanyAggregate(
@@ -35,10 +35,9 @@ public record CompanyAggregate(
         List<CompanyMaterial> materials,
         List<CompanyEquipment> equipment,
         List<CompanyTag> tags,
-        // 카테고리는 마스터가 아니라 '링크'로 담는다 — 노출 여부(active)가 링크의 상태라서, 마스터만 담으면
-        // 공개 뷰가 무엇을 가려야 하는지 알 수 없다. 마스터는 link.getCategory() 로 꺼낸다.
+        // 카테고리는 링크째 담는다(회사가 고른 순서 displayOrder 가 링크에 있다). 마스터는 link.getCategory() 로 꺼낸다.
         List<CompanyCategory> categories,
-        // 인증도 카테고리와 같은 이유로 링크째 담는다 — '기타' 링크의 표시 이름(custom_name)은 마스터가 아니라
+        // 인증도 링크째 담는다 — '기타' 링크의 표시 이름(custom_name)은 마스터가 아니라
         // 링크가 들고 있다. 마스터는 link.getCertification() 으로 꺼낸다.
         List<CompanyCertification> certifications,
         List<Country> countries,

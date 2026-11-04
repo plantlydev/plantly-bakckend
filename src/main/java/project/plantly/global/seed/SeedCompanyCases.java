@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.function.UnaryOperator;
 
 /**
- * 계약 케이스 회사 C01~C25.
+ * 계약 케이스 회사 C01~C24.
  *
  * <p>이 목록이 시드의 본체다. 각 행은 채우기 위한 데이터가 아니라 <b>프론트-백엔드 계약의 한 갈래를
  * 증명하기 위한 표본</b>이고, 회사명 앞의 케이스 코드가 그 표본의 안정 키다(id 는 시드할 때마다 바뀐다).
@@ -22,7 +22,8 @@ import java.util.function.UnaryOperator;
  *
  * <p>번호는 바꾸지 않는다. {@code --app.seed.reset=true} 로 심으면 회사 id 가 케이스 번호와 같아지고, 프론트 캡처
  * 시나리오가 그 id 를 경로로 쓴다. 케이스를 없앨 때는 번호를 당기지 않고 그 자리를 다른 표본으로 채운다
- * (C08~C15 는 원래 등급·구독 케이스였다).
+ * (C08~C15 는 원래 등급·구독 케이스였다). 맨 끝 번호만은 지워도 앞 번호가 밀리지 않아 그냥 지운다
+ * (C25 는 컬렉션 항목 숨김(active) 케이스였다).
  */
 @Slf4j
 @Component
@@ -174,19 +175,6 @@ public class SeedCompanyCases {
         refs.add(new SeedCompanyRef("C24", equipmentOnly, null,
                 "'" + EQUIPMENT_ONLY_TOKEN + "' 토큰이 장비명에만 있고 회사명·소개글에는 없다."
                         + " 이 키워드로 검색해 잡히면 자식 텍스트(equipment_text)까지 색인된 것이다"));
-
-        // ===== 비활성 항목(active=false) =====
-        // 저장은 살아 있지만 공개에서 빠진 항목이 있는 회사. 프로덕션 경로에는 항목을 끄는 주체가 없어
-        // (등급 재조정이 폐지됐다) 이 케이스가 없으면 조회·카드·색인에 넣은 active 필터가 한 번도 발동하지 않는다.
-        // active 플래그 자체를 걷어낼 때 이 케이스도 함께 정리한다.
-        Long hiddenItems = adminCompany(adminId, 25, "비활성항목",
-                b -> b.categoryIds(masters.categoryIds(SeedIndexes.forCase(25), 5))
-                        .detailImageCount(6));
-        // 카테고리 1건, 상세이미지 3장만 남기고 나머지는 끈다.
-        companies.deactivateOverflow(hiddenItems, 1, 3);
-        refs.add(new SeedCompanyRef("C25", hiddenItems, null,
-                "카테고리 5건 중 1건, 상세이미지 6장 중 3장만 활성. 공개 상세·카드·패싯 검색에서는 꺼진 항목이"
-                        + " 아예 빠지고, 관리자/소유자 상세에서는 전부 내려오되 active=false 로 구분돼야 한다"));
 
         log.info("[seed] 계약 케이스 회사 {}건 생성", refs.size());
         return refs;

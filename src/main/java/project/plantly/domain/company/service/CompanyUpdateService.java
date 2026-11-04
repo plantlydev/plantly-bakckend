@@ -249,7 +249,7 @@ public class CompanyUpdateService {
 
     // ===== 공통 실행 골격 =====
 
-    // 소유(멤버) 검증 → 변경 적용 → 검색 도큐먼트 재동기화. 등급 정책이 없는 컬렉션(태그·소재·장비·연락처·산업군 등)이 쓴다.
+    // 소유(멤버) 검증 → 변경 적용 → 검색 도큐먼트 재동기화. 소유자 경로의 모든 수정(본체·컬렉션·공개 설정·삭제)이 쓴다.
     // (검색 색인 대상이 아닌 컬렉션까지 매번 재동기화하지만, 도큐먼트 재생성은 멱등이라 정합성 우선으로 일괄 호출한다)
     private void mutateOwned(Long companyId, Long userId, Consumer<Company> mutation) {
         Company company = loadOwnedCompany(companyId, userId);
