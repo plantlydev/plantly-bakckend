@@ -64,7 +64,7 @@ class CompanyUpdateServiceTest {
     // 소유자 경로: 회사 로드 + 멤버(소유) 확인을 스텁하고, 대상 Company 를 돌려준다.
     private Company givenOwnedCompany() {
         Company company = CompanyFixture.userCompany();
-        given(companyRepository.findById(COMPANY_ID)).willReturn(Optional.of(company));
+        given(companyRepository.findByIdForUpdate(COMPANY_ID)).willReturn(Optional.of(company));
         given(companyMemberRepository.existsByCompanyIdAndUserId(COMPANY_ID, OWNER_ID)).willReturn(true);
         return company;
     }
@@ -192,7 +192,7 @@ class CompanyUpdateServiceTest {
         @DisplayName("관리자 경로: 소유 검증 없이 교체하고 재동기화한다")
         void admin_replacesAndResyncs() {
             Company company = CompanyFixture.userCompany();
-            given(companyRepository.findById(COMPANY_ID)).willReturn(Optional.of(company));
+            given(companyRepository.findByIdForUpdate(COMPANY_ID)).willReturn(Optional.of(company));
 
             service.replaceCategoriesByAdmin(COMPANY_ID, List.of(1L, 2L));
 
@@ -221,7 +221,7 @@ class CompanyUpdateServiceTest {
     @Test
     @DisplayName("소유자가 아니면 COMPANY_ACCESS_DENIED 로 막고 아무것도 바꾸지 않는다")
     void notOwner_accessDenied() {
-        given(companyRepository.findById(COMPANY_ID)).willReturn(Optional.of(CompanyFixture.userCompany()));
+        given(companyRepository.findByIdForUpdate(COMPANY_ID)).willReturn(Optional.of(CompanyFixture.userCompany()));
         given(companyMemberRepository.existsByCompanyIdAndUserId(COMPANY_ID, OWNER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> service.replaceCategoriesByUser(COMPANY_ID, OWNER_ID, List.of(1L, 2L)))
