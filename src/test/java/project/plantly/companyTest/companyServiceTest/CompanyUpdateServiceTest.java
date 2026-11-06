@@ -142,11 +142,14 @@ class CompanyUpdateServiceTest {
         void revoke_clearsFlagAndRecordsReason() {
             Company company = CompanyFixture.userCompany();
             company.markBusinessVerified(LocalDateTime.now());
-            given(companyRepository.findById(COMPANY_ID)).willReturn(Optional.of(company));
+            given(companyRepository.findByIdForUpdate(COMPANY_ID)).willReturn(Optional.of(company));
             CompanyVerification verification = CompanyVerificationFixture.consumed(9L, OWNER_ID, COMPANY_ID);
             given(verificationRepository.findByCompanyId(COMPANY_ID)).willReturn(Optional.of(verification));
 
             service.revokeBusinessVerificationByAdmin(COMPANY_ID, "사칭 신고");
+
+            // 재인증 반영과 직렬화되도록 회사 행을 락으로 읽는다(락 없는 조회로 되돌리면 지적 ① 이 재발한다).
+            verify(companyRepository, never()).findById(any());
 
             assertThat(company.isBusinessVerified()).isFalse();
             assertThat(company.getBusinessVerifiedAt()).isNull();
@@ -161,7 +164,7 @@ class CompanyUpdateServiceTest {
             Company company = CompanyFixture.userCompany();
             company.markBusinessVerified(LocalDateTime.now());
             String before = company.getBusinessNumber();
-            given(companyRepository.findById(COMPANY_ID)).willReturn(Optional.of(company));
+            given(companyRepository.findByIdForUpdate(COMPANY_ID)).willReturn(Optional.of(company));
             given(verificationRepository.findByCompanyId(COMPANY_ID)).willReturn(Optional.empty());
 
             service.revokeBusinessVerificationByAdmin(COMPANY_ID, "사유");

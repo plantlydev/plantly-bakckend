@@ -235,6 +235,23 @@ class CompanyVerificationServiceTest {
         }
 
         @Test
+        @DisplayName("국세청은 통과했지만 반영 시점에 인증이 회수돼 있으면 거부하고, 국세청 시도는 감사 로그에 남긴다")
+        void reverify_revokedWhileWaitingForNts_rejectedButAttemptRecorded() {
+            given(writer.loadOwnedVerifiedBusinessNumber(COMPANY_ID, USER_ID)).willReturn(STORED_BUSINESS_NUMBER);
+            given(ntsClient.verify(any(), any(), any()))
+                    .willReturn(new NtsClient.Result(VerificationOutcome.VALID, "{\"raw\":true}"));
+            // writer 는 락 아래 최종 상태를 재확인하고 던진다(그 트랜잭션의 성공 시도 기록도 함께 롤백된다).
+            given(writer.applyReverification(anyLong(), anyLong(), any(), any(), any(), any(), any()))
+                    .willThrow(new BusinessException(CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED));
+
+            assertThatThrownBy(() -> service.reverify(USER_ID, COMPANY_ID, request))
+                    .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED);
+
+            verify(writer).recordAttempt(eq(USER_ID), eq(STORED_BUSINESS_NUMBER), eq("김신임"),
+                    eq(LocalDate.of(2021, 3, 4)), eq(VerificationOutcome.VALID), eq("{\"raw\":true}"));
+        }
+
+        @Test
         @DisplayName("국세청 정보와 불일치하면 400(MISMATCH)이며 갱신하지 않고 시도만 감사 로그에 남긴다")
         void reverify_mismatch_recordsAttemptAndDoesNotUpdate() {
             given(writer.loadOwnedVerifiedBusinessNumber(COMPANY_ID, USER_ID)).willReturn(STORED_BUSINESS_NUMBER);

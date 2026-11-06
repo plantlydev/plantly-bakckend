@@ -154,14 +154,7 @@ public class CompanyVerificationWriter {
     public String loadOwnedVerifiedBusinessNumber(Long companyId, Long userId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
-        if (!companyMemberRepository.existsByCompanyIdAndUserId(companyId, userId)) {
-            throw new BusinessException(CompanyErrorCode.COMPANY_ACCESS_DENIED);
-        }
-        // 미인증 회사는 재인증 대상이 아니다(인증이 회수됐거나 관리자 대신등록 등). businessVerified=true 는
-        // 등록 시 인증본을 소비했다는 뜻이라 businessNumber 가 반드시 채워져 있다.
-        if (!company.isBusinessVerified()) {
-            throw new BusinessException(CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED);
-        }
+        assertReverifiable(company, userId);
         return company.getBusinessNumber();
     }
 
@@ -172,14 +165,26 @@ public class CompanyVerificationWriter {
      * 값으로 맞추고, 성공 시도를 감사 로그에 남긴다. 대표자명(ceo_name)이 검색 도큐먼트에 색인되므로
      * 재색인한다. 국세청 호출이 끝난 뒤에만 부르므로 이 트랜잭션은 짧게 유지된다.
      *
+     * <p><b>동시성:</b> 1단계({@link #loadOwnedVerifiedBusinessNumber})의 확인은 국세청을 기다리는 사이 낡을 수
+     * 있다 — 그 틈에 관리자가 인증을 회수하면, 확인 없이 반영하는 순간 회수가 되돌려진다. 그래서 회사 행을
+     * 비관적 락으로 잡은 뒤 같은 조건을 <i>최종 상태</i>로 다시 확인한다. 둘 다 필요하다.
+     * <ul>
+     *   <li>재확인만 있으면: 회수 트랜잭션이 아직 커밋 전일 때 커밋된 옛 값(true)을 읽고 통과한 뒤, 커밋 시
+     *       전체 컬럼 UPDATE 로 회수를 덮는다.</li>
+     *   <li>락만 있으면: 이미 커밋된 회수를 그대로 덮는다.</li>
+     * </ul>
+     * 회수 쪽({@code CompanyUpdateService#revokeBusinessVerificationByAdmin})도 같은 락을 잡으므로 두 경로는
+     * 회사 단위로 직렬화되고, 나중에 락을 얻은 쪽이 앞선 쪽의 커밋 결과를 보고 판단한다.
+     *
      * @return 갱신된 인증 시각(= now). 응답에 그대로 실어 최초 인증 후 1년 재인증 주기의 기준점을 알린다.
      */
     @Transactional
     public LocalDateTime applyReverification(Long userId, Long companyId, String businessNumber,
                                              String ceoName, LocalDate businessStartDate,
                                              String rawResponse, LocalDateTime now) {
-        Company company = companyRepository.findById(companyId)
+        Company company = companyRepository.findByIdForUpdate(companyId)
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
+        assertReverifiable(company, userId);
         company.applyBusinessReverification(ceoName, businessStartDate, now);
 
         // 권위 있는 인증 레코드도 새 검증값으로 맞춘다. 소비된 인증이 존재하는 게 정상이지만, 없더라도
@@ -192,5 +197,17 @@ public class CompanyVerificationWriter {
 
         searchDocumentWriter.write(companyId);
         return now;
+    }
+
+    // 재인증 선행 조건. 국세청 호출 전(1단계)과 반영 직전(2단계, 락 아래)에 같은 기준으로 두 번 확인한다.
+    // 미인증 회사는 재인증 대상이 아니다(인증이 회수됐거나 관리자 대신등록 등). businessVerified=true 는
+    // 등록 시 인증본을 소비했다는 뜻이라 businessNumber 가 반드시 채워져 있다.
+    private void assertReverifiable(Company company, Long userId) {
+        if (!companyMemberRepository.existsByCompanyIdAndUserId(company.getId(), userId)) {
+            throw new BusinessException(CompanyErrorCode.COMPANY_ACCESS_DENIED);
+        }
+        if (!company.isBusinessVerified()) {
+            throw new BusinessException(CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED);
+        }
     }
 }
