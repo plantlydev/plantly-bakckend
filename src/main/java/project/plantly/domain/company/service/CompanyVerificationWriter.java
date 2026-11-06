@@ -87,12 +87,20 @@ public class CompanyVerificationWriter {
      * <p>검증값(대표자명·개업일자)은 건드리지 않는다. 저장된 값 그대로 다시 물어 통과한 경우에만 불리므로
      * 바꿀 것이 없기 때문이다. 값이 실제로 바뀌었다면 국세청이 MISMATCH 를 돌려주고 이 메서드는 불리지 않는다
      * (그 경우 사용자가 재인증 경로로 새 값을 넣어야 한다).
+     *
+     * <p><b>동시성:</b> 만료 판단(서비스의 {@code needsRefresh})은 국세청을 기다리는 사이 낡을 수 있다. 만료된 인증으로
+     * 발행을 두 번 누르면 먼저 끝난 요청이 인증을 소비(CONSUMED)한 뒤에 늦은 요청의 반영이 도착한다. 그래서
+     * 인증 행을 비관적 락으로 잡고 <i>최종 상태</i>로 다시 확인해, 이미 소비·회수된 인증이면 건드리지 않는다
+     * ({@link #applyReverification} 과 같은 이유로 둘 다 필요하다 — 락이 없으면 커밋 전 소비를 못 보고, 재확인이
+     * 없으면 커밋된 소비를 덮는다). 건너뛰어도 예외는 던지지 않는다 — 이어지는 등록 단계가 "이미 사용된 인증"으로
+     * 거절하는 것이 사용자에게 맞는 응답이다. 국세청은 실제로 불렸으므로 시도 기록은 그대로 남긴다.
      */
     @Transactional
     public void refresh(Long userId, Long verificationId, LocalDateTime now, Duration ttl, String rawResponse) {
-        CompanyVerification verification = verificationRepository.findByIdAndUserId(verificationId, userId)
-                .orElseThrow(() -> new BusinessException(CompanyErrorCode.VERIFICATION_NOT_FOUND));
-        verification.refresh(now, now.plus(ttl));
+        CompanyVerification verification = loadOwnedForUpdate(userId, verificationId);
+        if (verification.isAutoRefreshable()) {
+            verification.refresh(now, now.plus(ttl));
+        }
 
         attemptRepository.save(CompanyVerificationAttempt.automatic(
                 userId, verification.getBusinessNumber(), verification.getCeoName(),
@@ -105,12 +113,15 @@ public class CompanyVerificationWriter {
      * <p>상태를 지금 찍어두는 이유는 등록 경로가 뒤이어 같은 인증을 읽기 때문이다 — 확정해 두지 않으면
      * 매 발행 시도마다 국세청을 다시 부른다. 되살릴 길은 남아 있다: 사용자가 재인증하면 새 인증이 발급되고,
      * 초안은 사업자번호로 키잉돼 있어 그대로 이어진다.
+     *
+     * <p>{@link #refresh} 와 같은 이유로 락 아래에서 최종 상태를 다시 보고, 이미 소비·회수된 인증은 만료로 바꾸지 않는다.
      */
     @Transactional
     public void markExpired(Long userId, Long verificationId, VerificationOutcome outcome, String rawResponse) {
-        CompanyVerification verification = verificationRepository.findByIdAndUserId(verificationId, userId)
-                .orElseThrow(() -> new BusinessException(CompanyErrorCode.VERIFICATION_NOT_FOUND));
-        verification.markExpired();
+        CompanyVerification verification = loadOwnedForUpdate(userId, verificationId);
+        if (verification.isAutoRefreshable()) {
+            verification.markExpired();
+        }
 
         attemptRepository.save(CompanyVerificationAttempt.automatic(
                 userId, verification.getBusinessNumber(), verification.getCeoName(),
@@ -197,6 +208,12 @@ public class CompanyVerificationWriter {
 
         searchDocumentWriter.write(companyId);
         return now;
+    }
+
+    // 자동 재질의 반영 경로(refresh·markExpired)의 인증 로드. 소비와 직렬화하려고 행을 잠근다.
+    private CompanyVerification loadOwnedForUpdate(Long userId, Long verificationId) {
+        return verificationRepository.findByIdAndUserIdForUpdate(verificationId, userId)
+                .orElseThrow(() -> new BusinessException(CompanyErrorCode.VERIFICATION_NOT_FOUND));
     }
 
     // 재인증 선행 조건. 국세청 호출 전(1단계)과 반영 직전(2단계, 락 아래)에 같은 기준으로 두 번 확인한다.
