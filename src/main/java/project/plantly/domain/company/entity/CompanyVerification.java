@@ -125,10 +125,12 @@ public class CompanyVerification {
      * 통과한 경우에만 불리므로 바꿀 것이 없다. 바뀌는 것은 판정의 신선도뿐이라 인증 시각과 유효기간만
      * 새로 찍고, EXPIRED 로 내려앉았던 상태도 VERIFIED 로 되돌린다.
      *
-     * <p>CONSUMED/REVOKED 에는 부르지 않는다(호출부가 {@link #needsRefresh} 로 먼저 거른다) —
-     * 이미 회사에 쓰였거나 관리자가 회수한 인증을 되살리는 경로가 되면 안 된다.
+     * <p>CONSUMED/REVOKED 에는 부를 수 없다 — 이미 회사에 쓰였거나 관리자가 회수한 인증을 되살리는 경로가 되면
+     * 안 된다. 호출부의 사전 확인({@link #needsRefresh})은 국세청을 기다리는 사이 낡을 수 있으므로(동시 발행),
+     * 반영 경로는 락 아래에서 {@link #isAutoRefreshable} 을 다시 보고, 여기서도 한 번 더 막는다.
      */
     public void refresh(LocalDateTime verifiedAt, LocalDateTime expiresAt) {
+        assertAutoRefreshable();
         this.status = VerificationStatus.VERIFIED;
         this.verifiedAt = verifiedAt;
         this.expiresAt = expiresAt;
@@ -148,8 +150,24 @@ public class CompanyVerification {
         return status == VerificationStatus.VERIFIED && now.isAfter(expiresAt);
     }
 
+    /** 만료를 확정 기록한다. {@link #refresh} 와 같은 이유로 CONSUMED/REVOKED 에는 부를 수 없다. */
     public void markExpired() {
+        assertAutoRefreshable();
         this.status = VerificationStatus.EXPIRED;
+    }
+
+    /**
+     * 만료 처리(재질의 갱신·만료 확정)의 대상이 될 수 있는 상태인지 — 아직 회사에 쓰이지 않았고 회수되지도 않았다.
+     * CONSUMED/REVOKED 는 종착 상태라 자동 재질의가 건드리면 안 된다.
+     */
+    public boolean isAutoRefreshable() {
+        return status == VerificationStatus.VERIFIED || status == VerificationStatus.EXPIRED;
+    }
+
+    private void assertAutoRefreshable() {
+        if (!isAutoRefreshable()) {
+            throw new IllegalStateException("만료 처리 대상이 아닌 인증 상태: " + status);
+        }
     }
 
     public boolean isUsable() {

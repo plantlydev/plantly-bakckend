@@ -9,7 +9,8 @@ import project.plantly.domain.company.enums.VerificationStatus;
 import java.util.Collection;
 import java.util.Optional;
 
-public interface CompanyVerificationRepository extends JpaRepository<CompanyVerification, Long> {
+public interface CompanyVerificationRepository
+        extends JpaRepository<CompanyVerification, Long>, CompanyVerificationLockRepository {
 
     /** 회사 등록 시 인증을 소비하는 경로. userId 를 함께 걸어 타인의 인증을 쓰지 못하게 한다. */
     Optional<CompanyVerification> findByIdAndUserId(Long id, Long userId);
