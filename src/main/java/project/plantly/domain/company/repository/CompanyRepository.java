@@ -4,7 +4,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import project.plantly.domain.company.entity.Company;
 import project.plantly.domain.company.enums.CompanyVisibility;
 
-public interface CompanyRepository extends JpaRepository<Company, Long> {
+// 비관적 락 조회(findByIdForUpdate)는 CompanyLockRepository 조각에서 온다 — OSIV 하에서도 최신 상태를 읽어야 해서 직접 구현했다.
+public interface CompanyRepository extends JpaRepository<Company, Long>, CompanyLockRepository {
 
     // 공개 노출 중인 회사 수(현황 지표). 목록/검색과 달리 company_search_document 를 조인하지 않는다 —
     // 색인은 등록 트랜잭션 안에서 동기로 쓰이므로 두 수는 같고, 다르다면 색인이 밀린 것이라

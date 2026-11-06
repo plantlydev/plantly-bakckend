@@ -159,8 +159,18 @@ public class CompanyVerificationService {
             throw new BusinessException(toErrorCode(result.outcome()));
         }
 
-        LocalDateTime verifiedAt = writer.applyReverification(userId, companyId, businessNumber,
-                request.ceoName(), request.businessStartDate(), result.rawResponse(), now);
+        LocalDateTime verifiedAt;
+        try {
+            verifiedAt = writer.applyReverification(userId, companyId, businessNumber,
+                    request.ceoName(), request.businessStartDate(), result.rawResponse(), now);
+        } catch (BusinessException e) {
+            // 국세청 판정은 통과했지만 기다리는 사이 상태가 바뀌어(인증 회수 등) 반영이 거부된 경우.
+            // 반영 트랜잭션과 함께 성공 시도 기록도 롤백됐으므로 따로 남긴다 — 국세청은 실제로 불렸으니
+            // 감사 로그와 일일 한도 집계에서 빠지면 안 된다.
+            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
+                    VerificationOutcome.VALID, result.rawResponse());
+            throw e;
+        }
 
         return CompanyReverificationResponse.of(businessNumber, request.ceoName(), request.businessStartDate(), verifiedAt);
     }

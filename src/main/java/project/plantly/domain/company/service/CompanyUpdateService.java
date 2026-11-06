@@ -179,8 +179,11 @@ public class CompanyUpdateService {
     // 회사의 비정규화 플래그도 함께 내린다. 사업자번호는 지우지 않는다 — 활성 유니크로 같은 번호의
     // 재등록을 계속 막아야 하고, 어떤 번호로 인증받았었는지가 분쟁 기록으로 남아야 한다.
     // 검색 도큐먼트에 businessVerified 가 없어 재색인은 부르지 않는다(플래그 조정 경로와 같은 이유).
+    // 회사 행을 비관적 락으로 잡는다 — 재인증 반영(CompanyVerificationWriter#applyReverification)도 같은 락을
+    // 잡고 최종 상태를 재확인하므로, 회수가 진행 중이거나 커밋된 뒤의 재인증은 회수를 되돌리지 못한다.
     public void revokeBusinessVerificationByAdmin(Long companyId, String reason) {
-        Company company = loadCompany(companyId);
+        Company company = companyRepository.findByIdForUpdate(companyId)
+                .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
         company.revokeBusinessVerification();
         verificationRepository.findByCompanyId(companyId)
                 .ifPresent(verification -> verification.revoke(reason, LocalDateTime.now()));
