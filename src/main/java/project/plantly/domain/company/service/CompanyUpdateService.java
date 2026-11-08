@@ -182,8 +182,7 @@ public class CompanyUpdateService {
     // 회사 행을 비관적 락으로 잡는다 — 재인증 반영(CompanyVerificationWriter#applyReverification)도 같은 락을
     // 잡고 최종 상태를 재확인하므로, 회수가 진행 중이거나 커밋된 뒤의 재인증은 회수를 되돌리지 못한다.
     public void revokeBusinessVerificationByAdmin(Long companyId, String reason) {
-        Company company = companyRepository.findByIdForUpdate(companyId)
-                .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
+        Company company = loadCompany(companyId);
         company.revokeBusinessVerification();
         verificationRepository.findByCompanyId(companyId)
                 .ifPresent(verification -> verification.revoke(reason, LocalDateTime.now()));
@@ -276,8 +275,14 @@ public class CompanyUpdateService {
         return company;
     }
 
+    // 모든 수정 경로(소유자·관리자 수정, 플래그, 삭제·복구, 컬렉션 교체)의 회사 로드. 회사 행을 비관적 락으로 잡는다.
+    // Company 엔티티는 @Version·@DynamicUpdate 가 없어 dirty checking 이 모든 컬럼을 다시 쓴다. 락 없이 읽으면
+    // 커밋 전에 다른 트랜잭션이 커밋한 변경(관리자 인증 회수·플래그, 재인증 검증값)을 읽어 둔 옛 값으로 덮는다
+    // (CompanyUpdateLostUpdateConcurrencyTest 가 재현한다). 락으로 같은 회사의 쓰기를 차례로 세우면 나중 쪽이
+    // 앞선 커밋 결과 위에서 시작한다. 재인증 반영·인증 회수도 같은 락을 잡는다.
+    // 컬렉션 교체도 이 락 아래에서 돌아 같은 컬렉션의 동시 PUT 이 겹치지 않는다(리뷰 ④).
     private Company loadCompany(Long companyId) {
-        return companyRepository.findById(companyId)
+        return companyRepository.findByIdForUpdate(companyId)
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
     }
 }

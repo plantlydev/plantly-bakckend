@@ -19,7 +19,8 @@ public interface CompanyLockRepository {
      * 반드시 쓰기 트랜잭션 안에서, 외부 호출 없이 짧게 써야 한다. 영속성 컨텍스트의 기존 값을 DB 값으로
      * 덮어쓰므로, 같은 트랜잭션에서 회사를 고치기 <b>전에</b> 불러야 한다(아직 flush 되지 않은 변경은 사라진다).
      *
-     * <p>현재 사용처: 재인증 반영 ↔ 관리자 인증 회수. 두 경로가 businessVerified 를 서로 덮어쓰지 않게 한다.
+     * <p>현재 사용처: {@code CompanyUpdateService} 의 모든 수정 경로와 재인증 반영. 회사 엔티티는 모든 컬럼을 다시 쓰므로
+     * 회사를 고치는 트랜잭션은 이 조회로 시작해야 서로의 커밋(인증 회수·플래그·재인증 검증값)을 덮지 않는다.
      */
     Optional<Company> findByIdForUpdate(Long id);
 }
