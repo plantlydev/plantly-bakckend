@@ -36,6 +36,11 @@ public enum CommonErrorCode implements ErrorCode {
     // 도메인 409(사업자번호 중복 등)는 여전히 자기 코드를 던진다.
     CONFLICT(HttpStatus.CONFLICT, "요청이 현재 상태와 충돌합니다."),
 
+    // 락 대기 상한(app.db.lock-timeout)을 넘겨 행 락을 못 잡았거나 데드락으로 희생된 경우. 같은 대상에 대한 다른
+    // 요청이 처리 중이라는 뜻이라 서버 오류(500)가 아니라 다시 시도하면 되는 충돌이다. 도메인 코드가 아니라 여기
+    // 있는 이유는 락이 특정 도메인이 아니라 DB 계층에서 걸리기 때문이다.
+    RESOURCE_BUSY(HttpStatus.CONFLICT, "다른 요청을 처리하고 있습니다. 잠시 후 다시 시도해 주세요."),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;
