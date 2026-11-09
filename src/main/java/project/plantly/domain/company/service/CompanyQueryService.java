@@ -167,9 +167,11 @@ public class CompanyQueryService {
         return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe);
     }
 
-    // 소유자 전용 상세: 요청자가 해당 회사의 멤버여야 한다. 삭제된 회사도 소유자에게는 보인다.
+    // 소유자 전용 상세: 요청자가 해당 회사의 멤버여야 한다. 삭제된 회사는 소유자에게도 없는 회사다(404) —
+    // 소유자 목록에서 이미 빠지고 되살리는 것도 관리자 몫이라, 삭제된 회사는 관리자 상세(getForAdmin)로만 본다.
     public CompanyDetailResponse getOwnerView(Long companyId, Long requesterId) {
         Company company = companyRepository.findById(companyId)
+                .filter(c -> !c.isDeleted())
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND));
 
         if (!companyMemberRepository.existsByCompanyIdAndUserId(companyId, requesterId)) {

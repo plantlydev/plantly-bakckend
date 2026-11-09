@@ -236,9 +236,14 @@ public class CompanyVerificationWriter {
     }
 
     // 재인증 선행 조건. 국세청 호출 전(1단계)과 반영 직전(2단계, 락 아래)에 같은 기준으로 두 번 확인한다.
+    // 삭제된 회사는 소유자에게 없는 회사라 404 다 — 1단계에서 걸러 국세청 호출·일일 한도를 쓰지 않고, 국세청을
+    // 기다리는 사이 삭제가 커밋되면 2단계에서 반영을 막는다.
     // 미인증 회사는 재인증 대상이 아니다(인증이 회수됐거나 관리자 대신등록 등). businessVerified=true 는
     // 등록 시 인증본을 소비했다는 뜻이라 businessNumber 가 반드시 채워져 있다.
     private void assertReverifiable(Company company, Long userId) {
+        if (company.isDeleted()) {
+            throw new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND);
+        }
         if (!companyMemberRepository.existsByCompanyIdAndUserId(company.getId(), userId)) {
             throw new BusinessException(CompanyErrorCode.COMPANY_ACCESS_DENIED);
         }

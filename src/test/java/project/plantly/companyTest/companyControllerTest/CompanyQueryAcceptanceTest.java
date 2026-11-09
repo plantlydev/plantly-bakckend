@@ -217,8 +217,8 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
         }
 
         @Test
-        @DisplayName("소프트 삭제된 회사도 소유자에게는 200 으로 보인다")
-        void deletedCompany_stillVisibleToOwner() {
+        @DisplayName("소프트 삭제된 회사는 소유자에게도 404 로 미존재 취급한다 (삭제된 회사는 관리자만 본다)")
+        void deletedCompany_notFoundForOwner() {
             CookieFilter owner = new CookieFilter();
             long ownerId = signUpMember(owner, "owner-deleted@example.com");
             long deletedId = seeder.seedDeletedCompany(ownerId);
@@ -228,8 +228,9 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
                     .when()
                     .get("/api/v1/companies/{id}/private", deletedId)
                     .then()
-                    .statusCode(200)
-                    .body("data.meta.deleted", equalTo(true));
+                    .statusCode(404)
+                    .body("success", equalTo(false))
+                    .body("code", equalTo("COMPANY_NOT_FOUND"));
         }
     }
 
