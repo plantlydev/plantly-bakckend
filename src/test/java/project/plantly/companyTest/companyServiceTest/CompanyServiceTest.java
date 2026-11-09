@@ -213,7 +213,7 @@ class CompanyServiceTest {
     }
 
     @Test
-    @DisplayName("만료된 인증으로는 등록할 수 없고, 만료 상태가 기록된다")
+    @DisplayName("만료된 인증으로는 등록할 수 없고, 인증 상태는 건드리지 않는다 (만료 확정은 refreshIfExpired 의 몫)")
     void createByUser_expiredVerification_rejected() {
         CompanyVerification expired = CompanyVerificationFixture.expired(VERIFICATION_ID, USER_ID);
         given(verificationRepository.findByIdAndUserId(VERIFICATION_ID, USER_ID)).willReturn(Optional.of(expired));
@@ -221,7 +221,8 @@ class CompanyServiceTest {
         assertThatThrownBy(() -> service().createByUser(USER_ID, myRequest))
                 .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_EXPIRED);
 
-        assertThat(expired.getStatus()).isEqualTo(VerificationStatus.EXPIRED);
+        // 등록 트랜잭션은 이 예외로 롤백되므로 여기서 바꾼 상태는 어차피 남지 않는다(리뷰 ⑦). 남는 척하는 쓰기를 두지 않는다.
+        assertThat(expired.getStatus()).isEqualTo(VerificationStatus.VERIFIED);
         verify(companyRepository, never()).save(any());
     }
 

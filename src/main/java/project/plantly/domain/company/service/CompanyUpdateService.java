@@ -102,6 +102,7 @@ public class CompanyUpdateService {
     // 사전 검사만으로는 동시성을 못 막는다 — 복구하는 순간 같은 번호의 신규 등록이 커밋되면 둘 다 검사를 통과하고, 커밋 때
     // 인덱스 위반이 raw DataIntegrityViolation(500)으로 터진다(리뷰 ⑥). 등록(CompanyService#persist)과 같은 방식으로 flush 해
     // UPDATE 를 지금 터뜨려 친화적 에러로 바꾼다. 회사 행 락은 이 경합을 막지 못한다 — 상대는 다른 행(새 회사)이다.
+    // 모든 제약 위반을 BUSINESS_NUMBER_TAKEN 으로 바꾸는 전제(회사 테이블 유니크가 그 인덱스 하나)도 persist 와 같다.
     public void restoreByAdmin(Long companyId) {
         Company company = loadCompany(companyId);
         if (company.getBusinessNumber() != null
