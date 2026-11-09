@@ -84,12 +84,23 @@ public class CompanyUpdateService {
     }
 
     // ===== 소프트 삭제 / 복구 =====
-    // 삭제는 소유자(자가삭제)·관리자 모두 가능하고, 복구는 관리자 전용이다 — 삭제된 회사는 소유자 목록/공개 경로에서
-    // 사라지므로(관리자에게만 보임) 되살리는 건 모더레이션 성격이라 관리자 경로로만 노출한다.
+    // 삭제는 소유자(자가삭제)·관리자 모두 가능하고, 복구는 관리자 전용이다 — 삭제된 회사는 소유자에게 없는 회사라
+    // (목록·상세·수정·재인증 모두 404, 관리자에게만 보임) 되살리는 건 모더레이션 성격이라 관리자 경로로만 노출한다.
     // 삭제/복구 모두 명시적 방향(토글 아님)이라 멱등하다: 이미 삭제된 걸 또 삭제해도, 이미 활성인 걸 또 복구해도 같은 상태로 수렴.
 
+    // 소유자 삭제만 삭제된 회사를 404 로 막지 않는다 — 더블클릭·재시도가 오류로 보이지 않게 소유자에게는 멱등 성공한다.
+    // 소유자가 아니면 다른 소유자 경로와 같이 404 다(삭제된 회사가 있었다는 사실을 드러내지 않는다).
     public void deleteByUser(Long companyId, Long userId) {
-        mutateOwned(companyId, userId, Company::delete);
+        Company company = loadCompany(companyId);
+        if (company.isDeleted()) {
+            if (!isMember(companyId, userId)) {
+                throw new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND);
+            }
+            return;
+        }
+        assertMember(companyId, userId);
+        company.delete();
+        searchDocumentWriter.write(companyId);
     }
 
     public void deleteByAdmin(Long companyId) {
@@ -277,12 +288,25 @@ public class CompanyUpdateService {
     }
 
     // 소유(멤버) 검증까지 통과한 회사를 로드한다. (getOwnerView 와 동일 정책)
+    // 삭제된 회사는 소유자에게 없는 회사라 멤버 여부와 무관하게 404 다. 회사 행 락 아래에서 보므로, 앞선 삭제가
+    // 커밋된 뒤 락을 얻은 수정은 그 삭제를 보고 거절된다.
     private Company loadOwnedCompany(Long companyId, Long userId) {
         Company company = loadCompany(companyId);
-        if (!companyMemberRepository.existsByCompanyIdAndUserId(companyId, userId)) {
+        if (company.isDeleted()) {
+            throw new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND);
+        }
+        assertMember(companyId, userId);
+        return company;
+    }
+
+    private void assertMember(Long companyId, Long userId) {
+        if (!isMember(companyId, userId)) {
             throw new BusinessException(CompanyErrorCode.COMPANY_ACCESS_DENIED);
         }
-        return company;
+    }
+
+    private boolean isMember(Long companyId, Long userId) {
+        return companyMemberRepository.existsByCompanyIdAndUserId(companyId, userId);
     }
 
     // 모든 수정 경로(소유자·관리자 수정, 플래그, 삭제·복구, 컬렉션 교체)의 회사 로드. 회사 행을 비관적 락으로 잡는다.
