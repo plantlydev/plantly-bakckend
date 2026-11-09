@@ -16,6 +16,7 @@ import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.support.BusinessNumbers;
+import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.exception.BusinessException;
 
 import java.util.EnumSet;
@@ -41,6 +42,7 @@ public class CompanyDraftService {
 
     private final CompanyDraftRepository draftRepository;
     private final CompanyVerificationRepository verificationRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
     // 발행에 다시 쓸 수 있는 인증 상태. 이유는 findResumableVerification 주석 참고.
@@ -50,9 +52,18 @@ public class CompanyDraftService {
      * 자동저장(upsert). 초안은 사용자·사업자번호당 1개라 그 짝으로 찾아 있으면 교체, 없으면 새로 만든다.
      * 이 번호로 만든 회사가 살아 있으면 초안이 아니라 수정 대상 — 저장을 거절한다. 삭제된 회사의 번호는
      * 재등록할 수 있으므로 막지 않는다(판정 근거는 {@link CompanyVerificationRepository#existsConsumedByLiveCompany}).
+     *
+     * <p><b>동시성:</b> "찾아서 없으면 만든다" 는 확인 후 실행이라, 첫 저장이 겹치면(자동저장과 수동저장) 둘 다 "없음" 을 보고
+     * INSERT 해 (user, 번호) 유니크 위반 500 이 난다(리뷰 ⑥). 그래서 사용자 행을 잠가 같은 사용자의 저장을 줄 세운다 —
+     * 뒤 요청은 앞 요청이 만든 초안을 보고 갱신 경로를 탄다(나중 저장이 이긴다). Postgres 의 {@code ON CONFLICT} upsert 를
+     * 쓰지 않은 이유는 H2 위에서 도는 인수 테스트가 {@code DO UPDATE} 를 지원하지 않기 때문이다. 잠금 범위가 사용자 전체지만
+     * 경합하는 것은 그 사용자 자신의 요청뿐이다.
      */
     @Transactional
     public void save(Long userId, String rawBusinessNumber, MyCompanyCreateRequest payload) {
+        // 인증된 요청의 사용자가 없다면 정합성이 깨진 것이다. 락 없이 넘어가면 직렬화가 소리 없이 풀리므로 막는다.
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new IllegalStateException("인증된 사용자 행이 없습니다: userId=" + userId));
         String businessNumber = requireVerifiedBusinessNumber(userId, rawBusinessNumber);
         if (verificationRepository.existsConsumedByLiveCompany(userId, businessNumber)) {
             throw new BusinessException(CompanyErrorCode.VERIFICATION_ALREADY_USED);

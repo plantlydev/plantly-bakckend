@@ -10,7 +10,7 @@ import project.plantly.global.exception.BusinessException;
 // 유저의 회사 좋아요/즐겨찾기. 원천 행(CompanyLike/CompanyFavorite)만으로 상태를 표현한다.
 // 토글이 아니라 등록(PUT)/해제(DELETE)로 동사를 분리해 멱등하다 — 같은 요청을 두 번 보내도 결과 상태가 동일하다.
 //   · 등록: insertIfAbsent(ON CONFLICT DO NOTHING) 로 중복 요청이 unique 위반 500 대신 no-op 이 된다.
-//   · 해제: deleteBy...(없는 행 삭제 = 0행) 로 그 자체가 멱등하다.
+//   · 해제: 벌크 DELETE(없는 행 삭제 = 0행) 로 그 자체가 멱등하다. 동시 해제(더블클릭)도 예외 없이 0행으로 끝난다.
 // 집계 카운터 캐시(CompanyStat)는 두지 않는다 — count 가 필요해지면 원천 행 COUNT(*) 로 파생한다.
 @Service
 @RequiredArgsConstructor
