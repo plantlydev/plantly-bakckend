@@ -848,10 +848,11 @@ include::{snippets}/company-unlike/http-response.adoc[]
 
 미인증 상태로 접근하면 `401` 이 반환됩니다(공통 규약, <<overview-auth>> 참고).
 
-===== 회사 없음 / 삭제됨 (404 Not Found)
+===== 회사 없음 / 삭제됨 / 비공개 (404 Not Found)
 
-없거나 소프트 삭제된 회사에 좋아요/즐겨찾기를 *등록* 하면 `404`(`COMPANY_NOT_FOUND`) 이 반환됩니다.
-(해제는 회사가 이미 삭제됐어도 내 상호작용을 정리할 수 있도록 회사 존재를 검증하지 않습니다.)
+없거나 소프트 삭제됐거나 비공개(`PRIVATE`)인 회사에 좋아요/즐겨찾기를 *등록* 하면 `404`(`COMPANY_NOT_FOUND`) 이 반환됩니다.
+세 경우를 구분하지 않습니다 — 응답이 다르면 비공개 회사의 존재가 드러나기 때문입니다.
+(해제는 회사가 이미 삭제됐거나 비공개로 바뀌었어도 내 상호작용을 정리할 수 있도록 회사를 검증하지 않습니다.)
 
 include::{snippets}/company-like-not-found/http-response.adoc[]
 

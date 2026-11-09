@@ -3,6 +3,7 @@ package project.plantly.domain.company.stat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyRepository;
 import project.plantly.global.exception.BusinessException;
@@ -46,9 +47,11 @@ public class CompanyStatService {
         companyFavoriteRepository.deleteByUserIdAndCompanyId(userId, companyId);
     }
 
-    // 삭제된 회사는 미존재로 취급(공개 조회와 동일 정책). 없는·삭제된 회사엔 신규 좋아요/즐겨찾기 불가.
+    // 공개 상세가 미존재로 취급하는 회사(삭제·비공개)는 여기서도 미존재다 — 없는·삭제된·비공개 회사엔 신규 좋아요/즐겨찾기 불가.
+    // 셋을 같은 404 로 거절해야 응답 차이로 비공개 회사의 존재가 드러나지 않는다. 공개일 때 이미 넣은 기록은 그대로 두고
+    // (즐겨찾기 목록이 PUBLIC 만 보이므로 숨겨지고, 다시 공개되면 돌아온다), 해제는 검증 없이 언제든 할 수 있다.
     private void validateActiveCompany(Long companyId) {
-        if (!companyRepository.existsByIdAndDeletedFalse(companyId)) {
+        if (!companyRepository.existsByIdAndDeletedFalseAndVisibility(companyId, CompanyVisibility.PUBLIC)) {
             throw new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND);
         }
     }

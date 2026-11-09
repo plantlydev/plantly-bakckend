@@ -136,7 +136,7 @@ public class CompanyStatControllerTest {
     }
 
     @Test
-    @DisplayName("삭제·미존재 회사에 좋아요를 등록하면 404(COMPANY_NOT_FOUND) 를 반환한다")
+    @DisplayName("삭제·비공개·미존재 회사에 좋아요를 등록하면 404(COMPANY_NOT_FOUND) 를 반환한다")
     void like_nonexistentCompany_notFound() throws Exception {
         authenticate(7L, UserRole.MEMBER);
         willThrow(new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND))

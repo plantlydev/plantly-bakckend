@@ -12,8 +12,8 @@ public interface CompanyRepository extends JpaRepository<Company, Long>, Company
     // '등록된 회사가 몇인가'에 대한 답으로는 이쪽이 옳다. 조건은 showcase 레일의 가시성 규칙과 같다.
     long countByDeletedFalseAndVisibility(CompanyVisibility visibility);
 
-    // 좋아요/즐겨찾기 등 상호작용 대상 검증용. 미삭제(공개 가능) 회사만 true. 소프트 삭제는 미존재로 취급한다.
-    boolean existsByIdAndDeletedFalse(Long id);
+    // 좋아요/즐겨찾기 등 상호작용 대상 검증용. 공개 상세에 보이는 회사(미삭제 + 지정한 공개 범위)만 true.
+    boolean existsByIdAndDeletedFalseAndVisibility(Long id, CompanyVisibility visibility);
 
     // 활성(미삭제) 회사 중 동일 사업자번호 존재 여부. 등록·복구 시 부분 유니크(활성 행끼리)를 앱 레벨에서도 사전 검증한다.
     // (DB 부분 유니크 인덱스가 최종 정합성을 보장하고, 이 조회는 친화적 에러 + H2 테스트 커버리지를 위한 belt-and-suspenders)
