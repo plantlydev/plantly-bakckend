@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -287,6 +288,12 @@ class GlobalExceptionHandlerTest {
             throw new MaxUploadSizeExceededException(10L);
         }
 
+        // 락 대기 상한(Postgres lock_timeout)을 넘겨 락을 못 잡은 경로. 스프링이 SQLState 55P03 을 이 예외로 옮긴다.
+        @GetMapping("/lock-busy")
+        ApiResponse<Void> lockBusy() {
+            throw new CannotAcquireLockException("could not obtain lock on row in relation \"company\"");
+        }
+
         @PostMapping("/part")
         ApiResponse<Map<String, String>> part(@RequestPart MultipartFile file) {
             return ApiResponse.success(Map.of("name", file.getName()));
@@ -305,6 +312,21 @@ class GlobalExceptionHandlerTest {
     // "코드가 붙는가" 가 아니라 "경로마다 옳은 코드가 붙는가" 를 본다 — 여기 실린 넷은 출처가 전부 다르다:
     // 도메인 예외(ErrorCode 직접) / 검증(폼 전체 판정) / 상태만 선언된 예외(상태→코드) / 표준 MVC 예외(부모 경유).
     // 한 곳이라도 코드를 빠뜨리면 그 경로만 클라이언트가 분기할 수 없게 되고, 그건 응답을 봐야만 드러난다.
+    @Nested
+    @DisplayName("락 경합 - 서버 오류가 아니라 다시 시도할 수 있는 충돌이다")
+    class LockContention {
+
+        @Test
+        @DisplayName("락 대기 상한을 넘겨 락을 못 잡으면 500 이 아니라 409(RESOURCE_BUSY) 다")
+        void lockNotAcquired_isConflict() throws Exception {
+            mockMvc.perform(get("/probe/lock-busy"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("RESOURCE_BUSY"))
+                    .andExpect(jsonPath("$.error").value(not(FALLBACK_MESSAGE)));
+        }
+    }
+
     @Nested
     @DisplayName("응답 code - 경로마다 옳은 식별자가 실리는가")
     class ErrorCodes {

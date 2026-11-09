@@ -3,6 +3,7 @@ package project.plantly.global.exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -56,6 +57,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.failure(CommonErrorCode.FORBIDDEN));
+    }
+
+    // 409 락 경합 - 락 대기 상한(Postgres lock_timeout, SQLState 55P03)을 넘겼거나 데드락(40P01)으로 희생됐다.
+    // 스프링이 둘 다 PessimisticLockingFailureException 하위(CannotAcquireLockException 등)로 옮겨 준다.
+    // 같은 대상을 다른 요청이 붙잡고 있다는 뜻이라 다시 시도하면 되므로 500 이 아니다. 다만 자주 보이면 락을
+    // 오래 쥐는 트랜잭션이나 방치된 DB 세션이 있다는 신호라 경고로 남긴다.
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLockContention(PessimisticLockingFailureException e) {
+        log.warn("락 경합으로 요청을 거절했다: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(CommonErrorCode.RESOURCE_BUSY.getStatus())
+                .body(ApiResponse.failure(CommonErrorCode.RESOURCE_BUSY));
     }
 
     // 500 서버 오류 - 부모가 다루지 않는, 예상치 못한 모든 예외의 fallback
