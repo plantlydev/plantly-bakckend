@@ -25,6 +25,8 @@ import project.plantly.domain.company.search.CompanySearchDocumentWriter;
 import project.plantly.domain.company.service.CompanyUpdateService;
 import project.plantly.domain.company.service.CompanyVerificationService;
 import project.plantly.domain.company.service.CompanyVerificationWriter;
+import project.plantly.domain.user.User;
+import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.exception.BusinessException;
 
 import java.time.Duration;
@@ -58,7 +60,6 @@ import static org.mockito.BDDMockito.given;
 @DisplayName("재인증 ↔ 관리자 회수 동시성")
 class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
 
-    private static final Long OWNER_ID = 7001L;
     private static final String NEW_CEO = "김신임";
     private static final LocalDate NEW_START = LocalDate.of(2021, 3, 4);
 
@@ -73,9 +74,12 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
     @Autowired CompanyVerificationRepository verificationRepository;
     @Autowired CompanyVerificationAttemptRepository attemptRepository;
     @Autowired TransactionTemplate transactionTemplate;
+    @Autowired UserRepository userRepository;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
+    // 재인증은 국세청 호출 전에 사용자 행을 잠가 일일 한도 자리를 예약하므로 실제 사용자 행이 있어야 한다.
+    private Long ownerId;
     private String businessNumber;
     private Long companyId;
 
@@ -83,16 +87,18 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
     void seed() {
         // 싱글톤 컨테이너를 다른 통합 테스트와 공유하므로 활성 유니크에 걸리지 않게 번호를 매번 새로 뽑는다(끝자리 0001: Fake 규칙상 통과).
         businessNumber = String.format("%06d0001", ThreadLocalRandom.current().nextInt(1_000_000));
+        ownerId = userRepository.save(User.create("revoke-" + businessNumber + "@plantly.test",
+                "encodedPw!", "소유자", "01000000000")).getId();
 
-        Company company = Company.createByUser(OWNER_ID, businessNumber, "동시성회사", "홍길동",
+        Company company = Company.createByUser(ownerId, businessNumber, "동시성회사", "홍길동",
                 LocalDate.of(2020, 1, 2), Address.of("06236", "서울 강남구", null, "테헤란로 1"),
                 null, "logo", null, "요약", "본문", null, null, null, null, null, null);
         company.markBusinessVerified(LocalDateTime.now().minusDays(1));
         companyId = companyRepository.save(company).getId();
 
-        memberRepository.save(CompanyMember.owner(companyId, OWNER_ID));
+        memberRepository.save(CompanyMember.owner(companyId, ownerId));
 
-        CompanyVerification verification = CompanyVerification.issue(OWNER_ID, businessNumber, "홍길동",
+        CompanyVerification verification = CompanyVerification.issue(ownerId, businessNumber, "홍길동",
                 LocalDate.of(2020, 1, 2), LocalDateTime.now().minusDays(1), Duration.ofDays(7));
         verification.consume(companyId);
         verificationRepository.save(verification);
@@ -112,6 +118,7 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
                 .filter(m -> companyId.equals(m.getCompanyId()))
                 .forEach(memberRepository::delete);
         companyRepository.deleteById(companyId);
+        userRepository.deleteById(ownerId);
     }
 
     @Test
@@ -127,7 +134,7 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
 
         // 1단계(businessVerified 확인)는 통과한 뒤 국세청 응답에서 멈춘다.
         Future<?> reverify = executor.submit(() -> verificationService.reverify(
-                OWNER_ID, companyId, new CompanyReverificationRequest(NEW_CEO, NEW_START)));
+                ownerId, companyId, new CompanyReverificationRequest(NEW_CEO, NEW_START)));
         assertThat(ntsEntered.await(5, TimeUnit.SECONDS)).isTrue();
 
         // 그 사이 관리자가 회수를 커밋한다.
@@ -162,7 +169,7 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
 
         // 반영 단계가 들어온다. 락이 없다면 커밋된 옛 값(businessVerified=true)을 읽고 재확인을 통과해버린다.
         Future<?> apply = executor.submit(() -> verificationWriter.applyReverification(
-                OWNER_ID, companyId, businessNumber, NEW_CEO, NEW_START, "{\"raw\":true}", LocalDateTime.now()));
+                ownerId, companyId, NEW_CEO, NEW_START, LocalDateTime.now()));
 
         // 회수가 행을 잡고 있는 동안 반영은 끝나지 못한다.
         assertThatThrownBy(() -> apply.get(300, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
@@ -184,8 +191,7 @@ class ReverificationRevokeConcurrencyTest extends PostgresContainerTest {
         CountDownLatch applyCommit = new CountDownLatch(1);
 
         Future<?> apply = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-            verificationWriter.applyReverification(OWNER_ID, companyId, businessNumber, NEW_CEO, NEW_START,
-                    "{\"raw\":true}", LocalDateTime.now());
+            verificationWriter.applyReverification(ownerId, companyId, NEW_CEO, NEW_START, LocalDateTime.now());
             applyDone.countDown();
             awaitQuietly(applyCommit);
         }));

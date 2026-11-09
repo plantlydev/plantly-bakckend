@@ -3,9 +3,10 @@ package project.plantly.domain.company.enums;
 /**
  * 인증 시도 1건의 결말. 감사 로그에 저장되고, 일일 재시도 제한 집계의 기준이 된다.
  *
- * <p>앞의 다섯은 국세청이 내려준 판정이고, 뒤의 둘은 우리 쪽 사유다 —
- * 국세청에 물어보지도 못한 {@link #UNAVAILABLE}, 판정은 통과했지만 이미 등록된 번호였던 {@link #DUPLICATE}.
- * (그래서 {@code NtsClient} 는 앞의 다섯만 반환한다. 뒤의 둘은 서비스가 붙인다.)
+ * <p>앞의 다섯은 국세청이 내려준 판정이고, 뒤의 셋은 우리 쪽 사유다 —
+ * 국세청에 물어보지도 못한 {@link #UNAVAILABLE}, 판정은 통과했지만 이미 등록된 번호였던 {@link #DUPLICATE},
+ * 아직 결말이 나지 않은 {@link #PENDING}.
+ * (그래서 {@code NtsClient} 는 앞의 다섯만 반환한다. 뒤의 셋은 서비스가 붙인다.)
  */
 public enum VerificationOutcome {
 
@@ -28,7 +29,16 @@ public enum VerificationOutcome {
     UNAVAILABLE,
 
     /** 국세청 판정은 통과했으나 이미 활성 회사가 쓰고 있는 사업자번호인 경우. */
-    DUPLICATE;
+    DUPLICATE,
+
+    /**
+     * 한도 안에서 자리를 예약했고 국세청 응답을 기다리는 중. 결말이 나면 위 값 중 하나로 바뀐다.
+     *
+     * <p>한도에 <b>잡힌다</b> — 그게 이 값의 존재 이유다. 국세청을 부르기 전에 시도를 먼저 세워 두어야, 같은 사용자의
+     * 동시 요청이 모두 "아직 0회" 를 보고 한도를 넘겨 국세청을 부르지 못한다. 서버가 응답 전에 죽어 이 값으로 남은 행도
+     * 그날 한도에 잡힌다(국세청에 실제로 닿았는지 알 수 없으므로 안전한 쪽으로 센다).
+     */
+    PENDING;
 
     public boolean countsTowardDailyLimit() {
         // 국세청이 죽어서 실패한 시도까지 세면, 장애 시간에 재시도한 사용자가 하루치 기회를 잃는다.

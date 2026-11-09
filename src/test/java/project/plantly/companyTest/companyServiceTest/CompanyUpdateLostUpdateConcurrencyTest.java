@@ -152,7 +152,7 @@ class CompanyUpdateLostUpdateConcurrencyTest extends PostgresContainerTest {
         Future<?> patch = startPatchAndHoldBeforeCommit();
 
         Future<?> reverify = executor.submit(() -> verificationWriter.applyReverification(OWNER_ID, companyId,
-                businessNumber, NEW_CEO, LocalDate.of(2021, 3, 4), "{\"raw\":true}", LocalDateTime.now()));
+                NEW_CEO, LocalDate.of(2021, 3, 4), LocalDateTime.now()));
         releasePatchAndAwait(patch, reverify);
 
         Company company = companyRepository.findById(companyId).orElseThrow();
