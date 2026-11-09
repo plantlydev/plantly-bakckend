@@ -9,6 +9,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import project.plantly.domain.user.User;
+import project.plantly.domain.user.repository.UserRepository;
 import org.springframework.test.util.ReflectionTestUtils;
 import project.plantly.companyTest.support.CompanyCreateRequestBuilder;
 import project.plantly.domain.company.dto.CompanyDraftResponse;
@@ -36,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -51,6 +54,7 @@ class CompanyDraftServiceTest {
 
     @Mock CompanyDraftRepository draftRepository;
     @Mock CompanyVerificationRepository verificationRepository;
+    @Mock UserRepository userRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private CompanyDraftService service;
@@ -71,7 +75,11 @@ class CompanyDraftServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CompanyDraftService(draftRepository, verificationRepository, objectMapper);
+        service = new CompanyDraftService(draftRepository, verificationRepository, userRepository, objectMapper);
+        // 저장은 첫 저장 경합을 막으려고 사용자 행을 잠근다(동시성 자체는 ConcurrentRequestErrorLeakTest 가 실제 DB 로 본다).
+        // 저장을 쓰지 않는 테스트도 있어 lenient 로 둔다.
+        lenient().when(userRepository.findByIdForUpdate(USER_ID))
+                .thenReturn(Optional.of(User.create("draft@plantly.test", "pw", "작성자", "01000000000")));
     }
 
     // 이 사용자가 이 번호로 국세청을 통과한 이력이 있다고 가정한다(초안 접근 권한의 근거).

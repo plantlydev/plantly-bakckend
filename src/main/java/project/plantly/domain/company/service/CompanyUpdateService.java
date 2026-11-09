@@ -1,6 +1,7 @@
 package project.plantly.domain.company.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.company.dto.AdminCompanyFlagsRequest;
@@ -98,6 +99,9 @@ public class CompanyUpdateService {
     // 복구는 활성 상태로 되돌리므로 사업자번호 활성 유니크(부분 인덱스)를 다시 지켜야 한다.
     // 삭제된 사이 같은 번호로 새 회사가 등록됐다면 복구 시 활성 2건이 되어 인덱스 위반 → 미리 친화적 에러로 막는다.
     // (복구 대상은 아직 deleted=true 라 exists...DeletedFalse 조회에 자기 자신은 안 걸린다.)
+    // 사전 검사만으로는 동시성을 못 막는다 — 복구하는 순간 같은 번호의 신규 등록이 커밋되면 둘 다 검사를 통과하고, 커밋 때
+    // 인덱스 위반이 raw DataIntegrityViolation(500)으로 터진다(리뷰 ⑥). 등록(CompanyService#persist)과 같은 방식으로 flush 해
+    // UPDATE 를 지금 터뜨려 친화적 에러로 바꾼다. 회사 행 락은 이 경합을 막지 못한다 — 상대는 다른 행(새 회사)이다.
     public void restoreByAdmin(Long companyId) {
         Company company = loadCompany(companyId);
         if (company.getBusinessNumber() != null
@@ -105,6 +109,11 @@ public class CompanyUpdateService {
             throw new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
         }
         company.restore();
+        try {
+            companyRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
+        }
         searchDocumentWriter.write(companyId);
     }
 
