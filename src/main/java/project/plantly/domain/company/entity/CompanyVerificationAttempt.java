@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
  * <p>두 가지 용도가 있다. (1) 일일 재시도 제한 집계, (2) 분쟁 대응 — 나중에 혜택이 인증에 걸리면
  * "언제 어떤 입력으로 무슨 응답을 받아 통과시켰는가"를 재구성할 수 있어야 한다. 그래서 국세청
  * 원본 응답을 그대로 보관한다.
+ *
+ * <p>사용자 시도는 국세청을 부르기 <b>전에</b> {@link #reserve} 로 먼저 남기고({@code PENDING}), 응답이 오면
+ * {@link #complete} 로 결말을 채운다. 결말이 나기 전부터 행이 있어야 일일 한도가 동시 요청에 뚫리지 않는다
+ * ({@code CompanyVerificationWriter#reserveAttempt}). 결말은 한 번만 채울 수 있다 — 그 뒤로는 감사 기록으로서 불변이다.
  */
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -72,6 +76,25 @@ public class CompanyVerificationAttempt {
         this.outcome = outcome;
         this.rawResponse = rawResponse;
         this.automatic = automatic;
+    }
+
+    /** 국세청을 부르기 전에 세워 두는 사용자 시도. 결말은 {@link #complete} 로 채운다. 일일 한도를 소모한다. */
+    public static CompanyVerificationAttempt reserve(Long userId, String businessNumber, String ceoName,
+                                                     LocalDate businessStartDate) {
+        return new CompanyVerificationAttempt(
+                userId, businessNumber, ceoName, businessStartDate, VerificationOutcome.PENDING, null, false);
+    }
+
+    /** 예약해 둔 시도에 결말을 채운다. 결말이 이미 났거나, 결말로 PENDING 을 넘기면 프로그래밍 오류다. */
+    public void complete(VerificationOutcome outcome, String rawResponse) {
+        if (this.outcome != VerificationOutcome.PENDING) {
+            throw new IllegalStateException("이미 결말이 난 시도다: id=" + id + ", outcome=" + this.outcome);
+        }
+        if (outcome == null || outcome == VerificationOutcome.PENDING) {
+            throw new IllegalArgumentException("시도의 결말이 아니다: " + outcome);
+        }
+        this.outcome = outcome;
+        this.rawResponse = rawResponse;
     }
 
     /** 사용자가 직접 누른 시도. 일일 한도를 소모한다. */

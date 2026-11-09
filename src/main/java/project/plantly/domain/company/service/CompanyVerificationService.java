@@ -40,31 +40,37 @@ public class CompanyVerificationService {
             throw new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_INVALID_FORMAT);
         }
 
+        // 국세청을 부르기 전에 한도 안의 자리부터 잡는다 — 세는 것과 기록하는 것 사이에 국세청 대기가 끼면
+        // 동시 요청이 한도를 넘긴다(근거는 CompanyVerificationWriter#reserveAttempt).
         LocalDateTime now = LocalDateTime.now();
-        long used = writer.countTodayAttempts(userId, now.toLocalDate().atStartOfDay());
-        if (used >= properties.dailyAttemptLimit()) {
-            throw new BusinessException(CompanyErrorCode.VERIFICATION_LIMIT_EXCEEDED);
-        }
+        Long attemptId = writer.reserveAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
+                now.toLocalDate().atStartOfDay(), properties.dailyAttemptLimit());
 
         NtsClient.Result result;
         try {
             result = ntsClient.verify(businessNumber, request.ceoName(), request.businessStartDate());
         } catch (NtsClient.UnavailableException e) {
-            // 국세청 쪽 문제다. 감사 로그엔 남기되 재시도 제한은 소모시키지 않고, 사용자에게도
+            // 국세청 쪽 문제다. 감사 로그엔 남기되 재시도 제한은 소모시키지 않고(예약을 푼다), 사용자에게도
             // 입력 오류가 아니라 시스템 지연임을 알린다.
-            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
-                    VerificationOutcome.UNAVAILABLE, null);
+            writer.completeAttempt(attemptId, VerificationOutcome.UNAVAILABLE, null);
             throw new BusinessException(CompanyErrorCode.VERIFICATION_UNAVAILABLE);
         }
 
         if (!result.isValid()) {
-            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
-                    result.outcome(), result.rawResponse());
+            writer.completeAttempt(attemptId, result.outcome(), result.rawResponse());
             throw new BusinessException(toErrorCode(result.outcome()));
         }
 
-        CompanyVerification verification = writer.issue(userId, businessNumber, request.ceoName(),
-                request.businessStartDate(), result.rawResponse(), now, properties.ttl());
+        CompanyVerification verification;
+        try {
+            verification = writer.issue(userId, businessNumber, request.ceoName(),
+                    request.businessStartDate(), now, properties.ttl());
+        } catch (BusinessException e) {
+            // 국세청 판정은 통과했지만 이미 활성 회사가 쓰는 번호다. 발급 트랜잭션은 롤백됐으므로 결말을 따로 채운다.
+            writer.completeAttempt(attemptId, VerificationOutcome.DUPLICATE, result.rawResponse());
+            throw e;
+        }
+        writer.completeAttempt(attemptId, VerificationOutcome.VALID, result.rawResponse());
 
         return CompanyVerificationResponse.from(verification);
     }
@@ -132,44 +138,37 @@ public class CompanyVerificationService {
      * 않고, 새 대표자명·개업일자가 통과하면 그대로 DB 를 덮어쓰고 인증 시각을 갱신한다.
      *
      * <p>트랜잭션 경계는 verify 와 동일하다 — 국세청 HTTP 호출을 트랜잭션 밖에 두고 DB 작업만 writer 의
-     * 짧은 트랜잭션으로 위임한다. 일일 시도 한도·감사 로그도 선행 인증과 같은 집계를 공유한다.
+     * 짧은 트랜잭션으로 위임한다. 일일 시도 한도·감사 로그도 선행 인증과 같은 집계(같은 예약)를 공유한다.
      */
     public CompanyReverificationResponse reverify(Long userId, Long companyId, CompanyReverificationRequest request) {
         // 사업자번호는 요청이 아니라 DB 저장값을 쓴다(탈취 방지). 소유·선행조건(businessVerified)도 여기서 확인한다.
         String businessNumber = writer.loadOwnedVerifiedBusinessNumber(companyId, userId);
 
         LocalDateTime now = LocalDateTime.now();
-        long used = writer.countTodayAttempts(userId, now.toLocalDate().atStartOfDay());
-        if (used >= properties.dailyAttemptLimit()) {
-            throw new BusinessException(CompanyErrorCode.VERIFICATION_LIMIT_EXCEEDED);
-        }
+        Long attemptId = writer.reserveAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
+                now.toLocalDate().atStartOfDay(), properties.dailyAttemptLimit());
 
         NtsClient.Result result;
         try {
             result = ntsClient.verify(businessNumber, request.ceoName(), request.businessStartDate());
         } catch (NtsClient.UnavailableException e) {
-            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
-                    VerificationOutcome.UNAVAILABLE, null);
+            writer.completeAttempt(attemptId, VerificationOutcome.UNAVAILABLE, null);
             throw new BusinessException(CompanyErrorCode.VERIFICATION_UNAVAILABLE);
         }
 
         if (!result.isValid()) {
-            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
-                    result.outcome(), result.rawResponse());
+            writer.completeAttempt(attemptId, result.outcome(), result.rawResponse());
             throw new BusinessException(toErrorCode(result.outcome()));
         }
 
+        // 국세청은 통과했으므로 결말은 VALID 다. 기다리는 사이 상태가 바뀌어(인증 회수 등) 반영이 거부돼도 국세청은
+        // 실제로 불렸으니 감사 로그와 일일 한도 집계에서 빠지면 안 된다 — 반영 성공·거부와 무관하게 채운다.
         LocalDateTime verifiedAt;
         try {
-            verifiedAt = writer.applyReverification(userId, companyId, businessNumber,
-                    request.ceoName(), request.businessStartDate(), result.rawResponse(), now);
-        } catch (BusinessException e) {
-            // 국세청 판정은 통과했지만 기다리는 사이 상태가 바뀌어(인증 회수 등) 반영이 거부된 경우.
-            // 반영 트랜잭션과 함께 성공 시도 기록도 롤백됐으므로 따로 남긴다 — 국세청은 실제로 불렸으니
-            // 감사 로그와 일일 한도 집계에서 빠지면 안 된다.
-            writer.recordAttempt(userId, businessNumber, request.ceoName(), request.businessStartDate(),
-                    VerificationOutcome.VALID, result.rawResponse());
-            throw e;
+            verifiedAt = writer.applyReverification(userId, companyId,
+                    request.ceoName(), request.businessStartDate(), now);
+        } finally {
+            writer.completeAttempt(attemptId, VerificationOutcome.VALID, result.rawResponse());
         }
 
         return CompanyReverificationResponse.of(businessNumber, request.ceoName(), request.businessStartDate(), verifiedAt);
@@ -183,8 +182,8 @@ public class CompanyVerificationService {
             case NOT_REGISTERED -> CompanyErrorCode.VERIFICATION_NOT_REGISTERED;
             case SUSPENDED -> CompanyErrorCode.VERIFICATION_SUSPENDED;
             case CLOSED -> CompanyErrorCode.VERIFICATION_CLOSED;
-            // NtsClient 는 이 셋을 반환하지 않는다(VALID 는 위에서 걸러지고, 나머지 둘은 서비스가 붙이는 값).
-            case VALID, UNAVAILABLE, DUPLICATE -> throw new IllegalStateException("국세청 판정이 아닌 값: " + outcome);
+            // NtsClient 는 이 넷을 반환하지 않는다(VALID 는 위에서 걸러지고, 나머지 셋은 서비스가 붙이는 값).
+            case VALID, UNAVAILABLE, DUPLICATE, PENDING -> throw new IllegalStateException("국세청 판정이 아닌 값: " + outcome);
         };
     }
 }

@@ -1,5 +1,6 @@
 package project.plantly.companyTest.companyServiceTest;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,21 +29,25 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 // CompanyVerificationService 단위 테스트.
-// 관심사는 "국세청 판정을 우리 도메인 결과로 어떻게 옮기는가" — 판정별 에러 매핑, 재시도 제한, 감사 로그 기록 여부.
+// 관심사는 "국세청 판정을 우리 도메인 결과로 어떻게 옮기는가" — 판정별 에러 매핑, 한도 예약, 시도 결말 기록.
+// 한도의 동시성(사용자 행 락 아래 예약)은 VerificationDailyLimitConcurrencyTest 가 실제 DB 로 검증한다.
 // 국세청 응답 파싱 자체는 NtsRestClientTest 가, DB 접근은 Writer 가 담당한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CompanyVerificationService: 선행 사업자 인증")
 class CompanyVerificationServiceTest {
 
     private static final Long USER_ID = 7L;
+    private static final Long ATTEMPT_ID = 501L;
 
     @Mock NtsClient ntsClient;
     @Mock CompanyVerificationWriter writer;
@@ -55,6 +60,18 @@ class CompanyVerificationServiceTest {
     private final CompanyVerificationRequest request =
             new CompanyVerificationRequest("123-45-67890", "홍길동", LocalDate.of(2020, 1, 2));
 
+    // 사용자 시도는 국세청 호출 전에 한도 안의 자리를 예약하고(reserveAttempt), 결말을 completeAttempt 로 채운다.
+    // 예약을 쓰지 않는 경로(형식 오류·refreshIfExpired)도 있어 lenient 로 둔다.
+    @BeforeEach
+    void reserveSucceedsByDefault() {
+        lenient().when(writer.reserveAttempt(anyLong(), any(), any(), any(), any(), anyInt())).thenReturn(ATTEMPT_ID);
+    }
+
+    private void givenLimitExhausted() {
+        given(writer.reserveAttempt(anyLong(), any(), any(), any(), any(), anyInt()))
+                .willThrow(new BusinessException(CompanyErrorCode.VERIFICATION_LIMIT_EXCEEDED));
+    }
+
     private void givenNtsReturns(VerificationOutcome outcome) {
         given(ntsClient.verify(any(), any(), any()))
                 .willReturn(new NtsClient.Result(outcome, "{\"raw\":true}"));
@@ -64,7 +81,7 @@ class CompanyVerificationServiceTest {
     @DisplayName("국세청 판정을 통과하면 정규화된 사업자번호로 인증을 발급한다")
     void verify_success_issuesVerification() {
         givenNtsReturns(VerificationOutcome.VALID);
-        given(writer.issue(eq(USER_ID), eq("1234567890"), eq("홍길동"), any(), any(), any(), any()))
+        given(writer.issue(eq(USER_ID), eq("1234567890"), eq("홍길동"), any(), any(), any()))
                 .willReturn(CompanyVerificationFixture.usable(99L, USER_ID));
 
         CompanyVerificationResponse response = service.verify(USER_ID, request);
@@ -72,6 +89,21 @@ class CompanyVerificationServiceTest {
         assertThat(response.verificationId()).isEqualTo(99L);
         // 하이픈이 제거된 형태로 국세청에 질의하고 저장한다 — 표기가 섞이면 활성 유니크가 중복을 못 막는다.
         verify(ntsClient).verify(eq("1234567890"), eq("홍길동"), eq(LocalDate.of(2020, 1, 2)));
+        verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.VALID, "{\"raw\":true}");
+    }
+
+    @Test
+    @DisplayName("국세청은 통과했지만 이미 쓰이는 번호면 409 이고, 롤백된 발급과 별개로 시도를 DUPLICATE 로 채운다")
+    void verify_duplicate_completesAttemptAsDuplicate() {
+        givenNtsReturns(VerificationOutcome.VALID);
+        given(writer.issue(anyLong(), any(), any(), any(), any(), any()))
+                .willThrow(new BusinessException(CompanyErrorCode.BUSINESS_NUMBER_TAKEN));
+
+        assertThatThrownBy(() -> service.verify(USER_ID, request))
+                .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.BUSINESS_NUMBER_TAKEN);
+
+        verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.DUPLICATE, "{\"raw\":true}");
+        verify(writer, never()).completeAttempt(any(), eq(VerificationOutcome.VALID), any());
     }
 
     @Test
@@ -84,8 +116,9 @@ class CompanyVerificationServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.BUSINESS_NUMBER_INVALID_FORMAT);
 
-        // 오타로 일일 쿼터를 태우지 않는다.
+        // 오타로 일일 쿼터를 태우지 않는다(한도 자리도 예약하지 않는다).
         verify(ntsClient, never()).verify(any(), any(), any());
+        verify(writer, never()).reserveAttempt(anyLong(), any(), any(), any(), any(), anyInt());
     }
 
     @Nested
@@ -100,8 +133,8 @@ class CompanyVerificationServiceTest {
             assertThatThrownBy(() -> service.verify(USER_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_MISMATCH);
 
-            verify(writer).recordAttempt(eq(USER_ID), eq("1234567890"), eq("홍길동"), any(),
-                    eq(VerificationOutcome.MISMATCH), any());
+            verify(writer).reserveAttempt(eq(USER_ID), eq("1234567890"), eq("홍길동"), any(), any(), anyInt());
+            verify(writer).completeAttempt(eq(ATTEMPT_ID), eq(VerificationOutcome.MISMATCH), any());
         }
 
         @Test
@@ -121,7 +154,7 @@ class CompanyVerificationServiceTest {
             assertThatThrownBy(() -> service.verify(USER_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_CLOSED);
 
-            verify(writer, never()).issue(anyLong(), any(), any(), any(), any(), any(), any());
+            verify(writer, never()).issue(anyLong(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -142,15 +175,14 @@ class CompanyVerificationServiceTest {
         assertThatThrownBy(() -> service.verify(USER_ID, request))
                 .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_UNAVAILABLE);
 
-        // 재시도 제한 집계에서 제외되는 outcome 으로 남겨야 장애 시간에 하루치 기회를 잃지 않는다.
-        verify(writer).recordAttempt(eq(USER_ID), any(), any(), any(),
-                eq(VerificationOutcome.UNAVAILABLE), eq(null));
+        // 재시도 제한 집계에서 제외되는 outcome 으로 채워야(= 예약을 풀어야) 장애 시간에 하루치 기회를 잃지 않는다.
+        verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.UNAVAILABLE, null);
     }
 
     @Test
     @DisplayName("일일 시도 한도(5회)를 채웠으면 국세청을 호출하지 않고 429 를 반환한다")
     void verify_dailyLimitExceeded() {
-        given(writer.countTodayAttempts(eq(USER_ID), any())).willReturn(5L);
+        givenLimitExhausted();
 
         assertThatThrownBy(() -> service.verify(USER_ID, request))
                 .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_LIMIT_EXCEEDED);
@@ -159,15 +191,16 @@ class CompanyVerificationServiceTest {
     }
 
     @Test
-    @DisplayName("한도 미만이면 정상적으로 국세청을 호출한다 (경계값: 4회 사용)")
-    void verify_underDailyLimit_proceeds() {
-        given(writer.countTodayAttempts(eq(USER_ID), any())).willReturn(4L);
+    @DisplayName("한도 자리 예약에 설정된 일일 한도(기본 5회)와 오늘 0시 기준을 넘긴다 — 경계값 판정은 writer 가 한다")
+    void verify_reservesWithConfiguredLimit() {
         givenNtsReturns(VerificationOutcome.VALID);
-        given(writer.issue(anyLong(), any(), any(), any(), any(), any(), any()))
+        given(writer.issue(anyLong(), any(), any(), any(), any(), any()))
                 .willReturn(CompanyVerificationFixture.usable(99L, USER_ID));
 
         service.verify(USER_ID, request);
 
+        verify(writer).reserveAttempt(eq(USER_ID), eq("1234567890"), eq("홍길동"), eq(LocalDate.of(2020, 1, 2)),
+                eq(LocalDate.now().atStartOfDay()), eq(5));
         verify(ntsClient).verify(any(), any(), any());
     }
 
@@ -177,13 +210,13 @@ class CompanyVerificationServiceTest {
     @DisplayName("발급 시 설정된 TTL(기본 7일)이 적용된다")
     void verify_appliesConfiguredTtl() {
         givenNtsReturns(VerificationOutcome.VALID);
-        given(writer.issue(anyLong(), any(), any(), any(), any(), any(), eq(Duration.ofDays(7))))
+        given(writer.issue(anyLong(), any(), any(), any(), any(), eq(Duration.ofDays(7))))
                 .willReturn(CompanyVerificationFixture.usable(99L, USER_ID));
 
         service.verify(USER_ID, request);
 
         verify(writer).issue(eq(USER_ID), eq("1234567890"), eq("홍길동"), eq(LocalDate.of(2020, 1, 2)),
-                any(), any(LocalDateTime.class), eq(Duration.ofDays(7)));
+                any(LocalDateTime.class), eq(Duration.ofDays(7)));
     }
 
     // 재인증: 등록·인증된 회사의 대표자명·개업일자를 국세청에 다시 확인해 갱신한다.
@@ -206,8 +239,8 @@ class CompanyVerificationServiceTest {
             given(writer.loadOwnedVerifiedBusinessNumber(COMPANY_ID, USER_ID)).willReturn(STORED_BUSINESS_NUMBER);
             given(ntsClient.verify(any(), any(), any()))
                     .willReturn(new NtsClient.Result(VerificationOutcome.VALID, "{\"raw\":true}"));
-            given(writer.applyReverification(eq(USER_ID), eq(COMPANY_ID), eq(STORED_BUSINESS_NUMBER),
-                    eq("김신임"), eq(LocalDate.of(2021, 3, 4)), any(), any()))
+            given(writer.applyReverification(eq(USER_ID), eq(COMPANY_ID),
+                    eq("김신임"), eq(LocalDate.of(2021, 3, 4)), any()))
                     .willReturn(reverifiedAt);
 
             CompanyReverificationResponse response = service.reverify(USER_ID, COMPANY_ID, request);
@@ -218,6 +251,8 @@ class CompanyVerificationServiceTest {
             assertThat(response.ceoName()).isEqualTo("김신임");
             assertThat(response.businessStartDate()).isEqualTo(LocalDate.of(2021, 3, 4));
             assertThat(response.verifiedAt()).isEqualTo(reverifiedAt);
+            verify(writer).reserveAttempt(eq(USER_ID), eq(STORED_BUSINESS_NUMBER), eq("김신임"), any(), any(), anyInt());
+            verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.VALID, "{\"raw\":true}");
         }
 
         @Test
@@ -231,7 +266,8 @@ class CompanyVerificationServiceTest {
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED);
 
             verify(ntsClient, never()).verify(any(), any(), any());
-            verify(writer, never()).applyReverification(anyLong(), anyLong(), any(), any(), any(), any(), any());
+            verify(writer, never()).reserveAttempt(anyLong(), any(), any(), any(), any(), anyInt());
+            verify(writer, never()).applyReverification(anyLong(), anyLong(), any(), any(), any());
         }
 
         @Test
@@ -240,15 +276,14 @@ class CompanyVerificationServiceTest {
             given(writer.loadOwnedVerifiedBusinessNumber(COMPANY_ID, USER_ID)).willReturn(STORED_BUSINESS_NUMBER);
             given(ntsClient.verify(any(), any(), any()))
                     .willReturn(new NtsClient.Result(VerificationOutcome.VALID, "{\"raw\":true}"));
-            // writer 는 락 아래 최종 상태를 재확인하고 던진다(그 트랜잭션의 성공 시도 기록도 함께 롤백된다).
-            given(writer.applyReverification(anyLong(), anyLong(), any(), any(), any(), any(), any()))
+            // writer 는 락 아래 최종 상태를 재확인하고 던진다. 시도 결말은 반영 트랜잭션과 따로 채운다.
+            given(writer.applyReverification(anyLong(), anyLong(), any(), any(), any()))
                     .willThrow(new BusinessException(CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED));
 
             assertThatThrownBy(() -> service.reverify(USER_ID, COMPANY_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.COMPANY_NOT_BUSINESS_VERIFIED);
 
-            verify(writer).recordAttempt(eq(USER_ID), eq(STORED_BUSINESS_NUMBER), eq("김신임"),
-                    eq(LocalDate.of(2021, 3, 4)), eq(VerificationOutcome.VALID), eq("{\"raw\":true}"));
+            verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.VALID, "{\"raw\":true}");
         }
 
         @Test
@@ -261,9 +296,8 @@ class CompanyVerificationServiceTest {
             assertThatThrownBy(() -> service.reverify(USER_ID, COMPANY_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_MISMATCH);
 
-            verify(writer).recordAttempt(eq(USER_ID), eq(STORED_BUSINESS_NUMBER), eq("김신임"), any(),
-                    eq(VerificationOutcome.MISMATCH), any());
-            verify(writer, never()).applyReverification(anyLong(), anyLong(), any(), any(), any(), any(), any());
+            verify(writer).completeAttempt(eq(ATTEMPT_ID), eq(VerificationOutcome.MISMATCH), any());
+            verify(writer, never()).applyReverification(anyLong(), anyLong(), any(), any(), any());
         }
 
         @Test
@@ -275,15 +309,14 @@ class CompanyVerificationServiceTest {
             assertThatThrownBy(() -> service.reverify(USER_ID, COMPANY_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_UNAVAILABLE);
 
-            verify(writer).recordAttempt(eq(USER_ID), any(), any(), any(),
-                    eq(VerificationOutcome.UNAVAILABLE), eq(null));
+            verify(writer).completeAttempt(ATTEMPT_ID, VerificationOutcome.UNAVAILABLE, null);
         }
 
         @Test
         @DisplayName("일일 시도 한도(5회)를 채웠으면 국세청을 호출하지 않고 429 를 반환한다(선행 인증과 한도 공유)")
         void reverify_dailyLimitExceeded() {
             given(writer.loadOwnedVerifiedBusinessNumber(COMPANY_ID, USER_ID)).willReturn(STORED_BUSINESS_NUMBER);
-            given(writer.countTodayAttempts(eq(USER_ID), any())).willReturn(5L);
+            givenLimitExhausted();
 
             assertThatThrownBy(() -> service.reverify(USER_ID, COMPANY_ID, request))
                     .hasFieldOrPropertyWithValue("errorCode", CompanyErrorCode.VERIFICATION_LIMIT_EXCEEDED);
@@ -375,7 +408,7 @@ class CompanyVerificationServiceTest {
 
             service.refreshIfExpired(USER_ID, VERIFICATION_ID);
 
-            verify(writer, never()).countTodayAttempts(any(), any());
+            verify(writer, never()).reserveAttempt(anyLong(), any(), any(), any(), any(), anyInt());
             verify(writer).refresh(eq(USER_ID), eq(VERIFICATION_ID), any(), any(), any());
         }
 
