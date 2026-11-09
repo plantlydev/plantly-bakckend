@@ -93,8 +93,10 @@ public class CompanyService {
                 .orElseThrow(() -> new BusinessException(CompanyErrorCode.VERIFICATION_NOT_FOUND));
 
         if (verification.isExpired(LocalDateTime.now())) {
-            // 만료를 읽는 시점에 확정 기록해 둔다. 이후 조회에서 상태만 보고 판단할 수 있다.
-            verification.markExpired();
+            // 상태는 바꾸지 않고 거절만 한다. 여기서 EXPIRED 로 찍어도 바로 아래 throw 로 등록 트랜잭션과 함께 롤백돼
+            // 남지 않는다(리뷰 ⑦). 만료 확정은 발행 직전 자동 재질의(CompanyVerificationService#refreshIfExpired)가
+            // 국세청 판정을 보고 별도 트랜잭션으로 한다 — 이 분기는 그 재질의와 이 검사 사이 몇 ms 동안 기간이
+            // 넘어간 경우에만 탄다. 그때도 다음 시도에서 재질의가 다시 돈다.
             throw new BusinessException(CompanyErrorCode.VERIFICATION_EXPIRED);
         }
         if (!verification.isUsable()) {
@@ -141,6 +143,8 @@ public class CompanyService {
         // 위 사전 검사만으로는 동시성을 못 막는다 — 선행 인증 시점엔 아직 회사가 없어서 두 사용자가 같은
         // 사업자번호로 동시에 인증을 통과할 수 있고, 등록도 나란히 사전 검사를 통과한다. 인덱스가 최종
         // 방어선인데, 그대로 두면 커밋 시점에 raw DataIntegrityViolation 이 터져 500 이 된다.
+        // 주의: 어떤 제약 위반이든 BUSINESS_NUMBER_TAKEN 으로 바꾼다. 지금 회사 테이블의 유니크는 활성 사업자번호
+        // 인덱스 하나라 맞지만, 다른 유니크·제약을 추가하면 여기서 제약 이름으로 구분해야 한다(리뷰 ⑦).
         try {
             companyRepository.save(company);
             companyRepository.flush();
