@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
 import project.plantly.domain.company.dto.CompanyCreateRequest.CertificationRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest.ContactRequest;
 import project.plantly.domain.company.dto.CompanyCreateRequest.ImageRequest;
@@ -71,7 +72,7 @@ public record MyCompanyCreateRequest(
         @Size(max = CompanyConstraints.AS_INFO_MAX, message = "유지보수 정보는 1000자를 넘을 수 없습니다.")
         String asInfo,
         PricingType pricingType,
-        // 자동저장(PUT /drafts/{id})은 @Valid 를 붙이지 않으므로, 이 검증은 발행(POST /companies) 시점에만 발화한다.
+        // 자동저장(PUT /drafts/{id})은 개수 상한(DraftChecks 그룹)만 검사하므로, 이 검증은 발행(POST /companies) 시점에만 발화한다.
         // 작성 중 초안에 반쯤 입력된 색이 담겨도 저장은 막히지 않는다.
         @Pattern(regexp = CompanyConstraints.BRAND_COLOR_PATTERN, message = CompanyConstraints.BRAND_COLOR_MESSAGE)
         String brandColor,
@@ -79,40 +80,40 @@ public record MyCompanyCreateRequest(
 
         // ===== 자식(소유) 엔티티 =====
         @Valid
-        @Size(max = CompanyConstraints.CONTACTS_MAX, message = "연락처는 현재 1건만 등록할 수 있습니다.")
+        @Size(max = CompanyConstraints.CONTACTS_MAX, message = "연락처는 현재 1건만 등록할 수 있습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "연락처 항목은 비어 있을 수 없습니다.") ContactRequest> contacts,
         @Valid
-        @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.DETAIL_IMAGES_MAX, message = "상세 이미지는 30장을 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "이미지 항목은 비어 있을 수 없습니다.") ImageRequest> images,
         @Valid
-        @Size(max = CompanyConstraints.REFERENCES_MAX, message = "프로젝트 레퍼런스는 현재 1건만 등록할 수 있습니다.")
+        @Size(max = CompanyConstraints.REFERENCES_MAX, message = "프로젝트 레퍼런스는 현재 1건만 등록할 수 있습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "레퍼런스 항목은 비어 있을 수 없습니다.") ReferenceRequest> references,
-        @Size(max = CompanyConstraints.MATERIALS_MAX, message = "취급 소재는 20개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.MATERIALS_MAX, message = "취급 소재는 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "소재명은 비어 있을 수 없습니다.")
                 @Size(max = CompanyConstraints.MATERIAL_NAME_MAX, message = "소재명은 50자를 넘을 수 없습니다.")
                 String> materialNames,
-        @Size(max = CompanyConstraints.EQUIPMENTS_MAX, message = "보유 장비는 20개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.EQUIPMENTS_MAX, message = "보유 장비는 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "장비명은 비어 있을 수 없습니다.")
                 @Size(max = CompanyConstraints.EQUIPMENT_NAME_MAX, message = "장비명은 50자를 넘을 수 없습니다.")
                 String> equipmentNames,
-        @Size(max = CompanyConstraints.TAGS_MAX, message = "태그는 10개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.TAGS_MAX, message = "태그는 10개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "태그는 비어 있을 수 없습니다.")
                 @Size(max = CompanyConstraints.TAG_NAME_MAX, message = "태그는 20자를 넘을 수 없습니다.")
                 String> tagNames,
 
         // ===== 링크(M:N) 엔티티 =====
-        @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.CATEGORIES_MAX, message = "카테고리는 10개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "카테고리 항목은 비어 있을 수 없습니다.") Long> categoryIds,
         // @NotNull 은 리스트가 아니라 '원소'에 붙는다 — 인증을 하나도 고르지 않은 "해당 사항 없음"은
         // 정상 상태라 리스트 자체는 null/빈 배열이어도 된다. 막아야 하는 건 [null] 같은 깨진 원소뿐이다.
         @Valid
-        @Size(max = CompanyConstraints.CERTIFICATIONS_MAX, message = "인증은 10개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.CERTIFICATIONS_MAX, message = "인증은 10개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "인증 항목은 비어 있을 수 없습니다.") CertificationRequest> certifications,
-        @Size(max = CompanyConstraints.COUNTRIES_MAX, message = "대응 가능 국가는 20개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.COUNTRIES_MAX, message = "대응 가능 국가는 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "국가 항목은 비어 있을 수 없습니다.") Long> countryIds,
-        @Size(max = CompanyConstraints.DOMESTIC_REGIONS_MAX, message = "대응 가능 지역은 20개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.DOMESTIC_REGIONS_MAX, message = "대응 가능 지역은 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "지역 항목은 비어 있을 수 없습니다.") Long> domesticRegionIds,
-        @Size(max = CompanyConstraints.INDUSTRIES_MAX, message = "산업군은 5개를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.INDUSTRIES_MAX, message = "산업군은 5개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotNull(message = "산업군 항목은 비어 있을 수 없습니다.") Long> industryIds
 ) {
 

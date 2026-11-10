@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -29,6 +30,7 @@ import project.plantly.domain.company.dto.CompanyDraftResponse;
 import project.plantly.domain.company.dto.CompanyDraftSummary;
 import project.plantly.domain.company.dto.CompanyPublicResponse;
 import project.plantly.domain.company.dto.CompanyShowcaseResponse;
+import project.plantly.domain.company.dto.DraftChecks;
 import project.plantly.domain.company.dto.CompanyStatsResponse;
 import project.plantly.domain.company.dto.CompanyReverificationRequest;
 import project.plantly.domain.company.dto.CompanyReverificationResponse;
@@ -111,12 +113,14 @@ public class CompanyController {
     // 'drafts/{businessNumber}' 는 두 세그먼트라 공개 상세(/{id}, 단일 세그먼트)와 겹치지 않으며, SecurityConfig 의
     // 기본 규칙(anyRequest().authenticated())으로 보호된다. 목록(GET /drafts)만 단일 세그먼트라 따로 규칙을 둔다.
 
-    // 자동저장(upsert). @Valid 를 붙이지 않아 부분 입력을 그대로 저장한다 — 필수값·마스터 검증은 발행 시점에만 한다.
+    // 자동저장(upsert). 필수값·원소·형식·마스터 검증은 하지 않고 부분 입력을 그대로 저장한다 — 그건 발행 시점에만 한다.
+    // 컬렉션 개수 상한만은 건다(DraftChecks 그룹) — 검증 없는 blob 에 과도한 본문이 쌓이지 않게 하는 손쉬운 둑.
     // 컬렉션도 요청 본문에 함께 실려 초안 payload 안에 보관되므로, 회사 생성 전까지 한 문서로 관리된다.
     @PutMapping("/api/v1/companies/drafts/{businessNumber}")
     public ApiResponse<Void> saveDraft(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable String businessNumber,
-                                       @RequestBody MyCompanyCreateRequest request) {
+                                       // 미완성 폼이라 @Valid(Default) 대신 개수 상한만 검사한다 — DraftChecks 참고.
+                                       @Validated(DraftChecks.class) @RequestBody MyCompanyCreateRequest request) {
         companyDraftService.save(principal.getUser().getId(), businessNumber, request);
         return ApiResponse.ok();
     }

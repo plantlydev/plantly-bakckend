@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
 import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.enums.ImageType;
 import project.plantly.domain.company.enums.PricingType;
@@ -177,7 +178,7 @@ public record CompanyCreateRequest(
             @Size(max = CompanyConstraints.PERIOD_MAX, message = "수행 기간은 50자를 넘을 수 없습니다.")
             String period,
             // 레퍼런스 1건당 이미지 장수 한도(모든 회사 공통).
-            @Size(max = CompanyConstraints.REFERENCE_IMAGES_MAX, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.REFERENCE_IMAGES_MAX, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             List<@NotBlank(message = "이미지 주소는 비어 있을 수 없습니다.")
                     @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.")
                     String> imageUrls

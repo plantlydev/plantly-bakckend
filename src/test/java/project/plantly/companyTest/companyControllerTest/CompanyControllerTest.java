@@ -302,7 +302,7 @@ public class CompanyControllerTest {
     // 그 수명에 묶이면 안 되기 때문이다(CompanyDraft 주석). 하이픈 유무는 서버가 정규화한다.
 
     @Test
-    @DisplayName("임시저장은 자가등록 폼을 사업자번호 1건당 1개 보관하고 성공 플래그만 반환한다 (@Valid 없이 부분 입력 허용)")
+    @DisplayName("임시저장은 자가등록 폼을 사업자번호 1건당 1개 보관하고 성공 플래그만 반환한다 (개수 상한 외 검증 없이 부분 입력 허용)")
     void saveDraft_success() throws Exception {
         // save 는 void — 기본 mock 이 삼킨다. 경로의 사업자번호와 인증 principal(7)이 서비스로 전달되는지 verify 로 확인한다.
         MyCompanyCreateRequest request = CompanyCreateRequestSamples.myFull();
