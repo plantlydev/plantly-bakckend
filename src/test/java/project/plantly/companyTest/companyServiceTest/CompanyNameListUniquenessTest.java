@@ -64,20 +64,36 @@ class CompanyNameListUniquenessTest extends PostgresContainerTest {
                 .contains("ux_company_tag_name", "ux_company_material_name", "ux_company_equipment_name");
     }
 
+    // 위반 한 번이면 Postgres 트랜잭션이 aborted 되어 다음 문장이 다른 예외로 실패하므로, 테이블마다 테스트를 나눈다.
+
     @Test
-    @DisplayName("앱을 우회해 공백·대소문자만 다른 이름을 넣어도 DB 가 거부한다")
-    void rejectsCaseAndWhitespaceVariantsAtDb() {
+    @DisplayName("앱을 우회해 공백·대소문자만 다른 태그를 넣어도 DB 가 거부한다")
+    void rejectsTagVariantAtDb() {
         Company company = persistCompany();
         tagRepository.saveAndFlush(new CompanyTag(company, "AI", 0));
-        materialRepository.saveAndFlush(new CompanyMaterial(company, "Steel", 0));
-        equipmentRepository.saveAndFlush(new CompanyEquipment(company, "CNC", 0));
 
         assertThatThrownBy(() -> tagRepository.saveAndFlush(new CompanyTag(company, " ai ", 1)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ux_company_tag_name");
+    }
+
+    @Test
+    @DisplayName("앱을 우회해 대소문자만 다른 소재를 넣어도 DB 가 거부한다")
+    void rejectsMaterialVariantAtDb() {
+        Company company = persistCompany();
+        materialRepository.saveAndFlush(new CompanyMaterial(company, "Steel", 0));
+
         assertThatThrownBy(() -> materialRepository.saveAndFlush(new CompanyMaterial(company, "steel", 1)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ux_company_material_name");
+    }
+
+    @Test
+    @DisplayName("앱을 우회해 공백·대소문자만 다른 장비를 넣어도 DB 가 거부한다")
+    void rejectsEquipmentVariantAtDb() {
+        Company company = persistCompany();
+        equipmentRepository.saveAndFlush(new CompanyEquipment(company, "CNC", 0));
+
         assertThatThrownBy(() -> equipmentRepository.saveAndFlush(new CompanyEquipment(company, "cnc ", 1)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ux_company_equipment_name");
