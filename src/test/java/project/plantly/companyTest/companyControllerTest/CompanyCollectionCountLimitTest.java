@@ -1,5 +1,7 @@
 package project.plantly.companyTest.companyControllerTest;
 
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,9 @@ import org.springframework.web.context.WebApplicationContext;
 import project.plantly.domain.company.controller.AdminCompanyController;
 import project.plantly.domain.company.controller.CompanyController;
 import project.plantly.domain.company.dto.CompanyConstraints;
+import project.plantly.domain.company.dto.CompanyCreateRequest;
+import project.plantly.domain.company.dto.DraftChecks;
+import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.service.CompanyDraftService;
 import project.plantly.domain.company.service.CompanyQueryService;
 import project.plantly.domain.company.service.CompanyRegistrationService;
@@ -39,11 +44,13 @@ import project.plantly.domain.user.enums.UserRole;
 import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.global.security.UserPrincipal;
 
+import java.util.List;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,7 +66,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 상한까지는 통과하고, 상한 + 1 은 400 이며 서비스 위임이 없다.
  *
  * <p>경로: 자가등록·관리자 등록(POST), 소유자·관리자 컬렉션 교체(PUT), 임시저장(PUT /drafts).
- * 임시저장은 미완성 폼을 받아야 해서 필수값·원소 검증은 하지 않지만 개수 상한만은 건다(검증 그룹 {@code DraftChecks}).
+ * 임시저장은 미완성 폼을 받아야 해서 필수값·원소·형식 검증은 하지 않지만, 개수·글자수 상한은 발행과 같은 값으로 건다
+ * (검증 그룹 {@code DraftChecks}).
  */
 @ActiveProfiles("test")
 @WebMvcTest(controllers = {CompanyController.class, AdminCompanyController.class})
@@ -192,9 +200,110 @@ class CompanyCollectionCountLimitTest {
         expect(put(path), "{" + field(limit, limit.max()).substring(1) + "}", status().isOk());
     }
 
+    /**
+     * 초안의 글자수 한 칸. {@code body(n)} 은 그 필드에 n 자짜리 값을 담은 초안 본문 전체다.
+     * 발행(등록)과 같은 상한이어야 한다 — 초안에서 통과한 값이 발행 때 길이로 튕기면 사용자는 저장된 줄 알고 떠난 글을 다시 고쳐야 한다.
+     */
+    record Length(String name, int max, IntFunction<String> body) {
+        @Override
+        public String toString() {
+            return name + "(" + max + ")";
+        }
+    }
+
+    static Stream<Length> draftLengths() {
+        return Stream.of(
+                top("companyName", CompanyConstraints.COMPANY_NAME_MAX),
+                top("roadAddress", CompanyConstraints.ROAD_ADDRESS_MAX),
+                top("jibunAddress", CompanyConstraints.JIBUN_ADDRESS_MAX),
+                top("detailAddress", CompanyConstraints.DETAIL_ADDRESS_MAX),
+                top("website", CompanyConstraints.URL_MAX),
+                top("logoUrl", CompanyConstraints.URL_MAX),
+                top("coverImageUrl", CompanyConstraints.URL_MAX),
+                top("introTitle", CompanyConstraints.INTRO_TITLE_MAX),
+                top("content", CompanyConstraints.CONTENT_MAX),
+                top("videoUrl", CompanyConstraints.URL_MAX),
+                top("leadTime", CompanyConstraints.LEAD_TIME_MAX),
+                top("asInfo", CompanyConstraints.AS_INFO_MAX),
+                new Length("tagNames[]", CompanyConstraints.TAG_NAME_MAX, n -> "{\"tagNames\":[\"" + text(n) + "\"]}"),
+                new Length("materialNames[]", CompanyConstraints.MATERIAL_NAME_MAX, n -> "{\"materialNames\":[\"" + text(n) + "\"]}"),
+                new Length("equipmentNames[]", CompanyConstraints.EQUIPMENT_NAME_MAX, n -> "{\"equipmentNames\":[\"" + text(n) + "\"]}"),
+                nested("contacts[].contactName", CompanyConstraints.CONTACT_NAME_MAX, "contacts", "contactName", ""),
+                nested("contacts[].position", CompanyConstraints.CONTACT_POSITION_MAX, "contacts", "position", ""),
+                nested("contacts[].phone", CompanyConstraints.PHONE_MAX, "contacts", "phone", ""),
+                nested("contacts[].email", CompanyConstraints.EMAIL_MAX, "contacts", "email", ""),
+                nested("certifications[].customName", CompanyConstraints.CUSTOM_CERTIFICATION_NAME_MAX,
+                        "certifications", "customName", ",\"certificationId\":1"),
+                nested("images[].imageUrl", CompanyConstraints.URL_MAX, "images", "imageUrl", ",\"imageType\":\"DETAIL\""),
+                nested("references[].projectTitle", CompanyConstraints.PROJECT_TITLE_MAX, "references", "projectTitle", ""),
+                nested("references[].achievements", CompanyConstraints.ACHIEVEMENTS_MAX, "references", "achievements", ""),
+                nested("references[].partners", CompanyConstraints.PARTNERS_MAX, "references", "partners", ""),
+                nested("references[].period", CompanyConstraints.PERIOD_MAX, "references", "period", ""),
+                new Length("references[].imageUrls[]", CompanyConstraints.URL_MAX,
+                        n -> "{\"references\":[{\"imageUrls\":[\"" + text(n) + "\"]}]}"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("draftLengths")
+    @DisplayName("임시저장 글자수 — 발행과 같은 상한까지 통과, 넘으면 400")
+    void draftLength(Length length) throws Exception {
+        authenticate(7L, UserRole.MEMBER);
+        String path = "/api/v1/companies/drafts/1234567890";
+
+        expect(put(path), length.body().apply(length.max() + 1), status().isBadRequest());
+        verifyNoInteractions(companyDraftService);
+        expect(put(path), length.body().apply(length.max()), status().isOk());
+    }
+
+    // 위 표는 지금 있는 필드만 본다. 나중에 @Size 를 새로 달면서 그룹을 빠뜨리면 초안만 조용히 그 상한을 건너뛰므로,
+    // 초안 본문을 이루는 타입의 모든 @Size(필드·컨테이너 원소)가 DraftChecks 그룹에 들어 있는지 메타데이터로 확인한다.
     @Test
-    @DisplayName("임시저장은 개수 외의 검증은 하지 않는다 — 필수값 누락·빈 원소·형식 오류가 있어도 저장된다")
-    void draftSkipsNonCountValidation() throws Exception {
+    @DisplayName("초안 본문의 모든 @Size 는 DraftChecks 그룹에 속한다 — 새 필드가 그룹을 빠뜨리지 않게")
+    void everySizeConstraintIsDraftChecked() {
+        jakarta.validation.Validator validator = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
+        List<Class<?>> draftTypes = List.of(MyCompanyCreateRequest.class, CompanyCreateRequest.ContactRequest.class,
+                CompanyCreateRequest.CertificationRequest.class, CompanyCreateRequest.ImageRequest.class,
+                CompanyCreateRequest.ReferenceRequest.class);
+
+        List<String> missing = new java.util.ArrayList<>();
+        int sizeCount = 0;
+        for (Class<?> type : draftTypes) {
+            for (PropertyDescriptor property : validator.getConstraintsForClass(type).getConstrainedProperties()) {
+                List<ConstraintDescriptor<?>> descriptors = new java.util.ArrayList<>(property.getConstraintDescriptors());
+                property.getConstrainedContainerElementTypes()
+                        .forEach(element -> descriptors.addAll(element.getConstraintDescriptors()));
+                for (ConstraintDescriptor<?> descriptor : descriptors) {
+                    if (descriptor.getAnnotation() instanceof jakarta.validation.constraints.Size) {
+                        sizeCount++;
+                        if (!descriptor.getGroups().contains(DraftChecks.class)) {
+                            missing.add(type.getSimpleName() + "." + property.getPropertyName());
+                        }
+                    }
+                }
+            }
+        }
+
+        assertThat(sizeCount).as("메타데이터를 실제로 읽었는지").isGreaterThanOrEqualTo(38);
+        assertThat(missing).as("DraftChecks 그룹이 빠진 @Size").isEmpty();
+    }
+
+    private static Length top(String field, int max) {
+        return new Length(field, max, n -> "{\"" + field + "\":\"" + text(n) + "\"}");
+    }
+
+    // 컬렉션 원소 1건 안의 문자열 필드. rest 는 같은 원소에 함께 실을 나머지 필드(",\"k\":v" 형태).
+    private static Length nested(String name, int max, String collection, String field, String rest) {
+        return new Length(name, max,
+                n -> "{\"" + collection + "\":[{\"" + field + "\":\"" + text(n) + "\"" + rest + "}]}");
+    }
+
+    private static String text(int n) {
+        return "1".repeat(n);   // 숫자만 — 전화번호 패턴 등 다른 규칙이 섞여도 글자수만 본다
+    }
+
+    @Test
+    @DisplayName("임시저장은 개수·글자수 외의 검증은 하지 않는다 — 필수값 누락·빈 원소·형식 오류가 있어도 저장된다")
+    void draftSkipsNonSizeValidation() throws Exception {
         authenticate(7L, UserRole.MEMBER);
 
         expect(put("/api/v1/companies/drafts/1234567890"),

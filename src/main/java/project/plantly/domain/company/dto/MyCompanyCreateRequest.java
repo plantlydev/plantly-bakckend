@@ -39,40 +39,40 @@ public record MyCompanyCreateRequest(
 
         // ===== 본체 (신원 3종 제외) =====
         @NotBlank(message = "기업명은 필수입니다.")
-        @Size(max = CompanyConstraints.COMPANY_NAME_MAX, message = "기업명은 100자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.COMPANY_NAME_MAX, message = "기업명은 100자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String companyName,
         // 주소 3축(우편번호/도로명/상세)은 엔티티(Address)가 NOT NULL 이라 필수다. 관리자 등록 경로와 같은 규칙이다.
         @NotBlank(message = "우편번호는 필수입니다.")
         @Pattern(regexp = CompanyConstraints.POSTAL_CODE_PATTERN, message = CompanyConstraints.POSTAL_CODE_MESSAGE)
         String postalCode,
         @NotBlank(message = "도로명 주소는 필수입니다.")
-        @Size(max = CompanyConstraints.ROAD_ADDRESS_MAX, message = "도로명 주소는 200자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.ROAD_ADDRESS_MAX, message = "도로명 주소는 200자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String roadAddress,
-        @Size(max = CompanyConstraints.JIBUN_ADDRESS_MAX, message = "지번 주소는 200자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.JIBUN_ADDRESS_MAX, message = "지번 주소는 200자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String jibunAddress,
         @NotBlank(message = "상세주소는 필수입니다.")
-        @Size(max = CompanyConstraints.DETAIL_ADDRESS_MAX, message = "상세주소는 100자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.DETAIL_ADDRESS_MAX, message = "상세주소는 100자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String detailAddress,
-        @Size(max = CompanyConstraints.URL_MAX, message = "홈페이지 주소는 255자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.URL_MAX, message = "홈페이지 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String website,
         // 로고는 선택이다. 없으면 프론트가 회사명 앞 두 글자로 대체 배지를 그린다.
-        @Size(max = CompanyConstraints.URL_MAX, message = "로고 이미지 주소는 255자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.URL_MAX, message = "로고 이미지 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String logoUrl,
-        @Size(max = CompanyConstraints.URL_MAX, message = "커버 이미지 주소는 255자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.URL_MAX, message = "커버 이미지 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String coverImageUrl,
-        @Size(max = CompanyConstraints.INTRO_TITLE_MAX, message = "한 줄 요약은 50자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.INTRO_TITLE_MAX, message = "한 줄 요약은 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String introTitle,
-        @Size(max = CompanyConstraints.CONTENT_MAX, message = "소개글은 5000자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.CONTENT_MAX, message = "소개글은 5000자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String content,
         TrlLevel trlLevel,
-        @Size(max = CompanyConstraints.URL_MAX, message = "동영상 주소는 255자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.URL_MAX, message = "동영상 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String videoUrl,
-        @Size(max = CompanyConstraints.LEAD_TIME_MAX, message = "예상 리드타임은 100자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.LEAD_TIME_MAX, message = "예상 리드타임은 100자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String leadTime,
-        @Size(max = CompanyConstraints.AS_INFO_MAX, message = "유지보수 정보는 1000자를 넘을 수 없습니다.")
+        @Size(max = CompanyConstraints.AS_INFO_MAX, message = "유지보수 정보는 1000자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         String asInfo,
         PricingType pricingType,
-        // 자동저장(PUT /drafts/{id})은 개수 상한(DraftChecks 그룹)만 검사하므로, 이 검증은 발행(POST /companies) 시점에만 발화한다.
+        // 자동저장(PUT /drafts/{id})은 크기 상한(@Size, DraftChecks 그룹)만 검사하므로, 이 검증은 발행(POST /companies) 시점에만 발화한다.
         // 작성 중 초안에 반쯤 입력된 색이 담겨도 저장은 막히지 않는다.
         @Pattern(regexp = CompanyConstraints.BRAND_COLOR_PATTERN, message = CompanyConstraints.BRAND_COLOR_MESSAGE)
         String brandColor,
@@ -90,15 +90,15 @@ public record MyCompanyCreateRequest(
         List<@NotNull(message = "레퍼런스 항목은 비어 있을 수 없습니다.") ReferenceRequest> references,
         @Size(max = CompanyConstraints.MATERIALS_MAX, message = "취급 소재는 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "소재명은 비어 있을 수 없습니다.")
-                @Size(max = CompanyConstraints.MATERIAL_NAME_MAX, message = "소재명은 50자를 넘을 수 없습니다.")
+                @Size(max = CompanyConstraints.MATERIAL_NAME_MAX, message = "소재명은 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
                 String> materialNames,
         @Size(max = CompanyConstraints.EQUIPMENTS_MAX, message = "보유 장비는 20개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "장비명은 비어 있을 수 없습니다.")
-                @Size(max = CompanyConstraints.EQUIPMENT_NAME_MAX, message = "장비명은 50자를 넘을 수 없습니다.")
+                @Size(max = CompanyConstraints.EQUIPMENT_NAME_MAX, message = "장비명은 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
                 String> equipmentNames,
         @Size(max = CompanyConstraints.TAGS_MAX, message = "태그는 10개를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
         List<@NotBlank(message = "태그는 비어 있을 수 없습니다.")
-                @Size(max = CompanyConstraints.TAG_NAME_MAX, message = "태그는 20자를 넘을 수 없습니다.")
+                @Size(max = CompanyConstraints.TAG_NAME_MAX, message = "태그는 20자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
                 String> tagNames,
 
         // ===== 링크(M:N) 엔티티 =====

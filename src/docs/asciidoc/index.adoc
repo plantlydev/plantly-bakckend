@@ -342,8 +342,9 @@ include::{snippets}/company-create-policy-violation/response-fields.adoc[]
   하이픈은 있어도 없어도 됩니다(서버가 정규화합니다).
 * *접근 권한은 인증 이력이 줍니다.* 본인이 그 번호로 사업자 인증(<<company-verification>>)을 통과한 적이 없으면
   `400`(`VERIFICATION_NOT_FOUND`), 번호 형식이 틀리면 `400`(`BUSINESS_NUMBER_INVALID_FORMAT`)입니다.
-* *저장은 개수 상한만 검증합니다.* 부분 입력을 그대로 담으며, 필수값·형식·마스터 ID 검증은 발행 때만 합니다.
-  다만 컬렉션 개수 상한(태그 10개, 상세 이미지 30장 등 <<company-create>> 와 같은 값)을 넘기면 `400` 입니다.
+* *저장은 크기 상한만 검증합니다.* 부분 입력을 그대로 담으며, 필수값·형식·마스터 ID 검증은 발행 때만 합니다.
+  다만 컬렉션 개수(태그 10개, 상세 이미지 30장 등)와 글자수(기업명 100자, 소개글 5000자 등) 상한은
+  <<company-create>> 와 같은 값으로 검사해, 넘기면 `400` 입니다.
   본문은 <<company-create>> 의 요청과 같은 형태이고(컬렉션 포함), 모든 필드가 선택입니다.
 * 복원한 `payload.verificationId` 는 저장 당시 값이라 낡았을 수 있습니다. 발행할 때는 조회 응답의
   `verification.verificationId` 로 덮어써 보내세요.
