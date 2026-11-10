@@ -68,8 +68,13 @@ public class CompanyChildWriter {
                 (img, i) -> CompanyImage.ofCompany(company, img.imageUrl(), img.imageType(), i));
     }
 
+    // 연락처·레퍼런스는 삭제 뒤 flush 한다. 대표 행에 "회사당 1건" 부분 유니크 인덱스가 걸려 있는데
+    // (CompanyRepresentativeIndexInitializer), 파생 delete 는 DELETE 를 flush 까지 미루고 IDENTITY PK 의 INSERT 는
+    // persist 즉시 나간다. 그대로 두면 "기존 대표를 새 대표로 바꾸는" 교체가 옛 대표가 남은 채 INSERT 되어 인덱스에 물린다.
+    // (CompanyLinkWriter 의 링크 교체와 같은 이유)
     public void replaceContacts(Company company, List<CompanyCreateRequest.ContactRequest> contacts) {
         contactRepository.deleteByCompanyId(company.getId());
+        contactRepository.flush();
         saveContacts(company, contacts);
     }
 
@@ -77,6 +82,7 @@ public class CompanyChildWriter {
     public void replaceReferences(Company company, List<CompanyCreateRequest.ReferenceRequest> references) {
         imageRepository.deleteByCompanyIdAndProjectReferenceIsNotNull(company.getId());
         referenceRepository.deleteByCompanyId(company.getId());
+        referenceRepository.flush();
         saveReferences(company, references);
     }
 
