@@ -13,6 +13,8 @@ import project.plantly.domain.company.certification.Certification;
 import project.plantly.domain.company.certification.CertificationType;
 import project.plantly.domain.company.entity.Address;
 import project.plantly.domain.company.entity.Company;
+import project.plantly.domain.company.entity.CompanyEquipment;
+import project.plantly.domain.company.entity.CompanyMaterial;
 import project.plantly.domain.company.entity.CompanyTag;
 import project.plantly.domain.company.entity.link.CompanyCategory;
 import project.plantly.domain.company.entity.link.CompanyCertification;
@@ -56,6 +58,34 @@ class PostgresTrigramCompanySearchTest extends PostgresContainerTest {
         index(persistCompany("나나기계", "금속 절삭"));
 
         assertThat(ids(search(kw("친환경")))).containsExactly(a.getId());
+    }
+
+    // 태그·소재·장비는 입력한 표기 그대로 저장한다("Ai", "ArtificialIntelligence" 를 살리기 위해 소문자로 접지 않는다).
+    // 대소문자 차이는 검색이 흡수한다 — 매칭이 ILIKE 라서. 이 테스트는 그 계약을 고정한다(LIKE 로 바뀌거나,
+    // ES 전환 시 keyword 필드에 lowercase normalizer 를 빠뜨리면 여기서 깨진다).
+    @Test
+    @DisplayName("대소문자 무시: 'Ai' 태그는 AI·ai·Ai 통합검색에, 'Steel'·'CNC' 는 고급검색 소재·장비에 대소문자 무관하게 잡힌다")
+    void matchingIgnoresCase() {
+        Company a = persistCompany("가가전자", "일반 제조");
+        em.persist(new CompanyTag(a, "Ai", 0));
+        em.persist(new CompanyMaterial(a, "Steel", 0));
+        em.persist(new CompanyEquipment(a, "CNC", 0));
+        index(a);
+        index(persistCompany("나나기계", "금속 절삭"));
+
+        for (String keyword : List.of("AI", "ai", "Ai")) {
+            assertThat(ids(search(kw(keyword)))).as("통합검색 '%s'", keyword).containsExactly(a.getId());
+        }
+        for (String material : List.of("STEEL", "steel")) {
+            AdvancedText byMaterial = new AdvancedText(null, null, null, null, null, null, null, null, material);
+            assertThat(ids(search(new CompanySearchCriteria(null, byMaterial, null, null, null))))
+                    .as("고급검색 소재 '%s'", material).containsExactly(a.getId());
+        }
+        for (String equipment : List.of("cnc", "Cnc")) {
+            AdvancedText byEquipment = new AdvancedText(null, null, null, null, null, null, null, equipment, null);
+            assertThat(ids(search(new CompanySearchCriteria(null, byEquipment, null, null, null))))
+                    .as("고급검색 장비 '%s'", equipment).containsExactly(a.getId());
+        }
     }
 
     @Test
