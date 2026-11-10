@@ -10,7 +10,10 @@ import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.*;
 import project.plantly.global.exception.BusinessException;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -31,11 +34,11 @@ public class CompanyChildWriter {
         saveContacts(company, request.contacts());
         saveIndexed(request.images(), imageRepository,
                 (img, i) -> CompanyImage.ofCompany(company, img.imageUrl(), img.imageType(), i));
-        saveIndexed(request.materialNames(), materialRepository,
+        saveIndexed(distinctNames(request.materialNames()), materialRepository,
                 (name, i) -> new CompanyMaterial(company, name, i));
-        saveIndexed(request.equipmentNames(), equipmentRepository,
+        saveIndexed(distinctNames(request.equipmentNames()), equipmentRepository,
                 (name, i) -> new CompanyEquipment(company, name, i));
-        saveIndexed(request.tagNames(), tagRepository,
+        saveIndexed(distinctNames(request.tagNames()), tagRepository,
                 (name, i) -> new CompanyTag(company, name, i));
         saveReferences(company, request.references());
     }
@@ -43,20 +46,28 @@ public class CompanyChildWriter {
     // ===== 컬렉션 전체 교체(PUT) 진입점 =====
     // 각 메서드는 "기존 삭제 → 새 리스트 재저장(displayOrder 재부여)" 하며, create 경로와 저장 로직을 공유한다.
     // null/빈 리스트를 넘기면 삭제만 수행(= 전부 비우기)된다.
+    //
+    // 태그·소재·장비·연락처·레퍼런스는 삭제 뒤 flush 한다. 이 테이블들엔 유니크 인덱스(이름 / 대표 1건)가 걸려 있는데
+    // (CompanyNameListIndexInitializer, CompanyRepresentativeIndexInitializer), 파생 delete 는 DELETE 를 flush 까지
+    // 미루고 IDENTITY PK 의 INSERT 는 persist 즉시 나간다. 그대로 두면 "기존 항목을 그대로 둔 채 하나 추가" 하거나
+    // "기존 대표를 새 대표로 바꾸는" 교체가 옛 행이 남은 채 INSERT 되어 인덱스에 물린다. (CompanyLinkWriter 와 같은 이유)
 
     public void replaceTags(Company company, List<String> tagNames) {
         tagRepository.deleteByCompanyId(company.getId());
-        saveIndexed(tagNames, tagRepository, (name, i) -> new CompanyTag(company, name, i));
+        tagRepository.flush();
+        saveIndexed(distinctNames(tagNames), tagRepository, (name, i) -> new CompanyTag(company, name, i));
     }
 
     public void replaceMaterials(Company company, List<String> materialNames) {
         materialRepository.deleteByCompanyId(company.getId());
-        saveIndexed(materialNames, materialRepository, (name, i) -> new CompanyMaterial(company, name, i));
+        materialRepository.flush();
+        saveIndexed(distinctNames(materialNames), materialRepository, (name, i) -> new CompanyMaterial(company, name, i));
     }
 
     public void replaceEquipment(Company company, List<String> equipmentNames) {
         equipmentRepository.deleteByCompanyId(company.getId());
-        saveIndexed(equipmentNames, equipmentRepository, (name, i) -> new CompanyEquipment(company, name, i));
+        equipmentRepository.flush();
+        saveIndexed(distinctNames(equipmentNames), equipmentRepository, (name, i) -> new CompanyEquipment(company, name, i));
     }
 
     // 갤러리(회사 직속) 이미지만 교체한다. 프로젝트 레퍼런스 이미지는 replaceReferences 가 관리한다.
@@ -70,6 +81,7 @@ public class CompanyChildWriter {
 
     public void replaceContacts(Company company, List<CompanyCreateRequest.ContactRequest> contacts) {
         contactRepository.deleteByCompanyId(company.getId());
+        contactRepository.flush();
         saveContacts(company, contacts);
     }
 
@@ -77,6 +89,7 @@ public class CompanyChildWriter {
     public void replaceReferences(Company company, List<CompanyCreateRequest.ReferenceRequest> references) {
         imageRepository.deleteByCompanyIdAndProjectReferenceIsNotNull(company.getId());
         referenceRepository.deleteByCompanyId(company.getId());
+        referenceRepository.flush();
         saveReferences(company, references);
     }
 
@@ -97,6 +110,25 @@ public class CompanyChildWriter {
                 .toList();
         entities.get(0).markAsRepresentative();   // 대표 1건 (현재는 단건만 허용)
         contactRepository.saveAll(entities);
+    }
+
+    // 이름 목록(태그·소재·장비) 정규화: 앞뒤 공백을 걷어내고, 대소문자만 다른 같은 이름은 첫 번째만 남긴다(순서 유지).
+    // 같은 이름이 또 오는 건 대개 입력 실수라 거절하지 않고 조용히 합친다 — 링크 교체의 중복 제거와 같은 태도.
+    // DB 의 (company_id, lower(btrim(이름))) 유니크 인덱스와 같은 기준이다(CompanyNameListIndexInitializer).
+    // 빈 항목은 컨트롤러 검증(@NotBlank)이 먼저 막지만, 검증을 안 거치는 호출(시드 등)에 대비해 건너뛴다.
+    private static List<String> distinctNames(List<String> names) {
+        if (names == null) {
+            return null;
+        }
+        Map<String, String> byKey = new LinkedHashMap<>();
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            String trimmed = name.strip();
+            byKey.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
+        }
+        return List.copyOf(byKey.values());
     }
 
     // (요청 리스트, 저장소, "i번째 요소 + 인덱스 → 엔티티" 팩토리) 를 받아 일괄 저장. null/빈 리스트는 무시한다.

@@ -28,6 +28,9 @@ public class CompanyCreateRequestBuilder {
     private List<ReferenceRequest> references;
     private List<Long> categoryIds;
     private List<CertificationRequest> certifications;
+    private List<String> materialNames;
+    private List<String> equipmentNames;
+    private List<String> tagNames;
 
     public static CompanyCreateRequestBuilder aRequest() {
         return new CompanyCreateRequestBuilder();
@@ -50,6 +53,13 @@ public class CompanyCreateRequestBuilder {
 
     public CompanyCreateRequestBuilder certifications(List<CertificationRequest> certifications) {
         this.certifications = certifications;
+        return this;
+    }
+
+    public CompanyCreateRequestBuilder nameLists(List<String> materialNames, List<String> equipmentNames, List<String> tagNames) {
+        this.materialNames = materialNames;
+        this.equipmentNames = equipmentNames;
+        this.tagNames = tagNames;
         return this;
     }
 
@@ -102,9 +112,9 @@ public class CompanyCreateRequestBuilder {
                 null,            // contacts
                 images,
                 references,
-                null,            // materialNames
-                null,            // equipmentNames
-                null,            // tagNames
+                materialNames,
+                equipmentNames,
+                tagNames,
                 categoryIds,
                 certifications,
                 null,            // countryIds
@@ -139,9 +149,9 @@ public class CompanyCreateRequestBuilder {
                 null,            // contacts
                 images,
                 references,
-                null,            // materialNames
-                null,            // equipmentNames
-                null,            // tagNames
+                materialNames,
+                equipmentNames,
+                tagNames,
                 categoryIds,
                 certifications,
                 null,            // countryIds
