@@ -128,15 +128,15 @@ public record CompanyCreateRequest(
 
     public record ContactRequest(
             @NotBlank(message = "담당자 이름은 필수입니다.")
-            @Size(max = CompanyConstraints.CONTACT_NAME_MAX, message = "담당자 이름은 50자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.CONTACT_NAME_MAX, message = "담당자 이름은 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String contactName,
-            @Size(max = CompanyConstraints.CONTACT_POSITION_MAX, message = "직위는 50자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.CONTACT_POSITION_MAX, message = "직위는 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String position,
-            @Size(max = CompanyConstraints.PHONE_MAX, message = "연락처는 20자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.PHONE_MAX, message = "연락처는 20자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             @Pattern(regexp = CompanyConstraints.PHONE_PATTERN, message = CompanyConstraints.PHONE_MESSAGE)
             String phone,
             @Email(message = "올바른 이메일 형식이 아닙니다.")
-            @Size(max = CompanyConstraints.EMAIL_MAX, message = "이메일은 255자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.EMAIL_MAX, message = "이메일은 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String email
     ) {
     }
@@ -152,14 +152,14 @@ public record CompanyCreateRequest(
             @NotNull(message = "인증 ID는 필수입니다.")
             Long certificationId,
             @Size(max = CompanyConstraints.CUSTOM_CERTIFICATION_NAME_MAX,
-                    message = "직접 입력한 인증명은 100자를 넘을 수 없습니다.")
+                    message = "직접 입력한 인증명은 100자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String customName
     ) {
     }
 
     public record ImageRequest(
             @NotBlank(message = "이미지 주소는 필수입니다.")
-            @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String imageUrl,
             @NotNull(message = "이미지 종류는 필수입니다.")
             ImageType imageType
@@ -169,18 +169,18 @@ public record CompanyCreateRequest(
     // 프로젝트 레퍼런스 1건 + 그에 딸린 이미지 URL 목록.
     // displayOrder(레퍼런스 순서/이미지 순서)는 클라이언트가 보내지 않고 서버가 리스트 인덱스로 부여한다.
     public record ReferenceRequest(
-            @Size(max = CompanyConstraints.PROJECT_TITLE_MAX, message = "프로젝트명은 200자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.PROJECT_TITLE_MAX, message = "프로젝트명은 200자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String projectTitle,
-            @Size(max = CompanyConstraints.ACHIEVEMENTS_MAX, message = "주요 성과는 2000자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.ACHIEVEMENTS_MAX, message = "주요 성과는 2000자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String achievements,
-            @Size(max = CompanyConstraints.PARTNERS_MAX, message = "참여 기관은 200자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.PARTNERS_MAX, message = "참여 기관은 200자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String partners,
-            @Size(max = CompanyConstraints.PERIOD_MAX, message = "수행 기간은 50자를 넘을 수 없습니다.")
+            @Size(max = CompanyConstraints.PERIOD_MAX, message = "수행 기간은 50자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             String period,
             // 레퍼런스 1건당 이미지 장수 한도(모든 회사 공통).
             @Size(max = CompanyConstraints.REFERENCE_IMAGES_MAX, message = "레퍼런스 이미지는 10장을 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
             List<@NotBlank(message = "이미지 주소는 비어 있을 수 없습니다.")
-                    @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.")
+                    @Size(max = CompanyConstraints.URL_MAX, message = "이미지 주소는 255자를 넘을 수 없습니다.", groups = {Default.class, DraftChecks.class})
                     String> imageUrls
     ) {
     }

@@ -114,12 +114,12 @@ public class CompanyController {
     // 기본 규칙(anyRequest().authenticated())으로 보호된다. 목록(GET /drafts)만 단일 세그먼트라 따로 규칙을 둔다.
 
     // 자동저장(upsert). 필수값·원소·형식·마스터 검증은 하지 않고 부분 입력을 그대로 저장한다 — 그건 발행 시점에만 한다.
-    // 컬렉션 개수 상한만은 건다(DraftChecks 그룹) — 검증 없는 blob 에 과도한 본문이 쌓이지 않게 하는 손쉬운 둑.
+    // 크기 상한(컬렉션 개수·글자수)만은 발행과 같은 값으로 건다(DraftChecks 그룹) — 과도한 본문이 쌓이지 않게 하는 손쉬운 둑.
     // 컬렉션도 요청 본문에 함께 실려 초안 payload 안에 보관되므로, 회사 생성 전까지 한 문서로 관리된다.
     @PutMapping("/api/v1/companies/drafts/{businessNumber}")
     public ApiResponse<Void> saveDraft(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable String businessNumber,
-                                       // 미완성 폼이라 @Valid(Default) 대신 개수 상한만 검사한다 — DraftChecks 참고.
+                                       // 미완성 폼이라 @Valid(Default) 대신 크기 상한(@Size)만 검사한다 — DraftChecks 참고.
                                        @Validated(DraftChecks.class) @RequestBody MyCompanyCreateRequest request) {
         companyDraftService.save(principal.getUser().getId(), businessNumber, request);
         return ApiResponse.ok();

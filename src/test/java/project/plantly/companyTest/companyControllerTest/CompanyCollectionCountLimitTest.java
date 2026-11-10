@@ -1,5 +1,7 @@
 package project.plantly.companyTest.companyControllerTest;
 
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,9 @@ import org.springframework.web.context.WebApplicationContext;
 import project.plantly.domain.company.controller.AdminCompanyController;
 import project.plantly.domain.company.controller.CompanyController;
 import project.plantly.domain.company.dto.CompanyConstraints;
+import project.plantly.domain.company.dto.CompanyCreateRequest;
+import project.plantly.domain.company.dto.DraftChecks;
+import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.service.CompanyDraftService;
 import project.plantly.domain.company.service.CompanyQueryService;
 import project.plantly.domain.company.service.CompanyRegistrationService;
@@ -39,11 +44,13 @@ import project.plantly.domain.user.enums.UserRole;
 import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.global.security.UserPrincipal;
 
+import java.util.List;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -246,6 +253,38 @@ class CompanyCollectionCountLimitTest {
         expect(put(path), length.body().apply(length.max() + 1), status().isBadRequest());
         verifyNoInteractions(companyDraftService);
         expect(put(path), length.body().apply(length.max()), status().isOk());
+    }
+
+    // 위 표는 지금 있는 필드만 본다. 나중에 @Size 를 새로 달면서 그룹을 빠뜨리면 초안만 조용히 그 상한을 건너뛰므로,
+    // 초안 본문을 이루는 타입의 모든 @Size(필드·컨테이너 원소)가 DraftChecks 그룹에 들어 있는지 메타데이터로 확인한다.
+    @Test
+    @DisplayName("초안 본문의 모든 @Size 는 DraftChecks 그룹에 속한다 — 새 필드가 그룹을 빠뜨리지 않게")
+    void everySizeConstraintIsDraftChecked() {
+        jakarta.validation.Validator validator = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
+        List<Class<?>> draftTypes = List.of(MyCompanyCreateRequest.class, CompanyCreateRequest.ContactRequest.class,
+                CompanyCreateRequest.CertificationRequest.class, CompanyCreateRequest.ImageRequest.class,
+                CompanyCreateRequest.ReferenceRequest.class);
+
+        List<String> missing = new java.util.ArrayList<>();
+        int sizeCount = 0;
+        for (Class<?> type : draftTypes) {
+            for (PropertyDescriptor property : validator.getConstraintsForClass(type).getConstrainedProperties()) {
+                List<ConstraintDescriptor<?>> descriptors = new java.util.ArrayList<>(property.getConstraintDescriptors());
+                property.getConstrainedContainerElementTypes()
+                        .forEach(element -> descriptors.addAll(element.getConstraintDescriptors()));
+                for (ConstraintDescriptor<?> descriptor : descriptors) {
+                    if (descriptor.getAnnotation() instanceof jakarta.validation.constraints.Size) {
+                        sizeCount++;
+                        if (!descriptor.getGroups().contains(DraftChecks.class)) {
+                            missing.add(type.getSimpleName() + "." + property.getPropertyName());
+                        }
+                    }
+                }
+            }
+        }
+
+        assertThat(sizeCount).as("메타데이터를 실제로 읽었는지").isGreaterThanOrEqualTo(38);
+        assertThat(missing).as("DraftChecks 그룹이 빠진 @Size").isEmpty();
     }
 
     private static Length top(String field, int max) {
