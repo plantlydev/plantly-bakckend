@@ -14,6 +14,8 @@ public record LoginRequest(
         @Pattern(regexp = "^(?=.*[^A-Za-z0-9]).+$", message = "비밀번호에 특수문자를 최소 1개 포함해야 합니다.")
         String password,
 
+        // remember-me 비활성화로 현재는 무시된다. 요청 계약을 깨지 않으려고 남겨 두며,
+        // 자체 로그인을 formLogin 으로 전환할 때 이 DTO 와 함께 정리한다.
         boolean remember
 ) {
 }

@@ -10,7 +10,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import project.plantly.domain.user.User;
@@ -26,14 +25,13 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
-    private final RememberMeServices rememberMeServices;
 
 
 //     세션 기반 로그인.
 //     1) AuthenticationManager로 자격증명 검증 (실패 → BusinessException)
 //     2) 세션 고정 보호: 기존 세션이 있으면 세션 ID 교체
 //     3) 인증 정보를 담은 SecurityContext를 SecurityContextRepository로 세션에 명시적 저장
-//     4) remember=true면 30일 영속 로그인(remember-me) 쿠키 발급
+//     remember-me 는 비활성화했으므로 LoginRequest.remember 는 받기만 하고 무시한다(SecurityConfig 참고).
 
     public LoginResponse login(LoginRequest request,
                                HttpServletRequest httpRequest,
@@ -51,11 +49,6 @@ public class AuthService {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
-
-        // remember=true일 때만 영속 로그인 쿠키 발급
-        if (request.remember()) {
-            rememberMeServices.loginSuccess(httpRequest, httpResponse, authentication);
-        }
 
         User user = ((UserPrincipal) authentication.getPrincipal()).getUser();
         return LoginResponse.from(user);

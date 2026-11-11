@@ -4,9 +4,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.RememberMeServices;
+import org.springframework.security.web.authentication.rememberme.RememberMeAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -30,7 +32,7 @@ class SecurityContextLoadTest {
     private SecurityContextRepository securityContextRepository;
 
     @Autowired
-    private RememberMeServices rememberMeServices;
+    private ApplicationContext applicationContext;
 
     @Test
     @DisplayName("세션 인증 보안 빈들이 정상 구성된다")
@@ -38,6 +40,13 @@ class SecurityContextLoadTest {
         assertThat(securityFilterChain).isNotNull();
         assertThat(authenticationManager).isNotNull();
         assertThat(securityContextRepository).isNotNull();
-        assertThat(rememberMeServices).isNotNull();
+    }
+
+    @Test
+    @DisplayName("remember-me 는 비활성화돼 있다: RememberMeServices 빈도, remember-me 필터도 없다")
+    void rememberMeIsDisabled() {
+        assertThat(applicationContext.getBeansOfType(RememberMeServices.class)).isEmpty();
+        assertThat(securityFilterChain.getFilters())
+                .noneMatch(RememberMeAuthenticationFilter.class::isInstance);
     }
 }
