@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.RememberMeAuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,7 +16,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -25,7 +23,6 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import project.plantly.global.security.CustomRememberMeServices;
 import project.plantly.global.security.CustomUserDetailsService;
 import project.plantly.global.security.handler.RestAccessDeniedHandler;
 import project.plantly.global.security.handler.RestAuthenticationEntryPoint;
@@ -39,15 +36,10 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final int REMEMBER_ME_VALIDITY_SECONDS = 60 * 60 * 24 * 30; // 30일
-
     private final CustomUserDetailsService customUserDetailsService;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final RestLogoutSuccessHandler logoutSuccessHandler;
-
-    @Value("${app.remember-me.key}")
-    private String rememberMeKey;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -63,8 +55,9 @@ public class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
 
-                // 커스텀 로그인/리멤버미 필터가 사용할 AuthenticationManager 명시
-                .authenticationManager(authenticationManager())
+                // AuthenticationManager 를 HttpSecurity 에 명시하지 않는다. 명시하면 각 설정(oauth2Login 등)이
+                // http.authenticationProvider(...) 로 등록하는 provider 가 무시된다(HttpSecurity.beforeConfigure).
+                // 커스텀 로그인(AuthService)은 아래 authenticationManager() 빈을 직접 주입받아 쓴다.
 
                 // 인증 컨텍스트를 세션에 저장/로드할 저장소 (AuthService와 동일 빈 사용)
                 .securityContext(sc -> sc.securityContextRepository(securityContextRepository()))
@@ -117,17 +110,18 @@ public class SecurityConfig {
                         // 관리자 전용 엔드포인트 추가 시: .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
 
-                // remember=true 시 30일 영속 로그인
-                .rememberMe(remember -> remember
-                        .rememberMeServices(rememberMeServices())
-                        .key(rememberMeKey))
+                // remember-me 는 첫 배포에서 비활성화한다 — 세션 인증만 유지한다(유휴 만료는 server.servlet.session.timeout).
+                // 쿠키 발급도, 쿠키를 통한 자동 복구도 하지 않는다. 재도입 시 .rememberMe(...) 를 다시 붙인다
+                // (CustomRememberMeServices 참고).
 
-                // 로그아웃: 세션 무효화 + 쿠키 제거 (remember-me 쿠키는 RememberMeServices가 LogoutHandler로 자동 제거)
+                // 로그아웃: 세션 무효화 + 쿠키 제거.
+                // remember-me 쿠키는 .rememberMe() 가 있을 때 RememberMeServices 가 LogoutHandler 로 지워 줬지만,
+                // 이제 그 핸들러가 없으므로 예전에 발급된 쿠키도 여기서 명시적으로 만료시킨다.
                 .logout(logout -> logout
                         .logoutUrl("/api/v1/auth/logout")
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-                        .deleteCookies("JSESSIONID")
+                        .deleteCookies("JSESSIONID", "remember-me")
                         .logoutSuccessHandler(logoutSuccessHandler))
 
                 // 필터 단계 인증/인가 실패를 동일 ApiResponse 포맷으로 매핑
@@ -146,9 +140,7 @@ public class SecurityConfig {
         DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider(customUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder());
 
-        RememberMeAuthenticationProvider rememberMeProvider = new RememberMeAuthenticationProvider(rememberMeKey);
-
-        return new ProviderManager(daoProvider, rememberMeProvider);
+        return new ProviderManager(daoProvider);
     }
 
     @Bean
@@ -157,19 +149,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RememberMeServices rememberMeServices() {
-        CustomRememberMeServices services = new CustomRememberMeServices(rememberMeKey, customUserDetailsService);
-        services.setTokenValiditySeconds(REMEMBER_ME_VALIDITY_SECONDS);
-        return services;
-    }
-
-    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true); // 세션/리멤버미 쿠키 전송 허용
+        config.setAllowCredentials(true); // 세션 쿠키 전송 허용
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
