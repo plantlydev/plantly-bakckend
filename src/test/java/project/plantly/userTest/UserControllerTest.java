@@ -191,6 +191,22 @@ public class UserControllerTest {
     }
 
     @Test
+    @DisplayName("자체 회원가입은 휴대폰 번호가 없으면 400 — 컬럼이 null 을 허용해도 요청 검증은 필수로 남는다")
+    public void signup_phoneRequired () throws Exception {
+        SignUpRequest request = new SignUpRequest("test@example.com", "rawPassword!", "rawPassword!", "홍길동", null);
+
+        mockMvc.perform(post("/api/v1/users/sign-up")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errors[0].field").value("phone"))
+                .andExpect(jsonPath("$.errors[0].message").value("휴대폰 번호는 필수입니다."));
+
+        verify(userService, never()).createUser(any(SignUpRequest.class));
+    }
+
+    @Test
     @DisplayName("인증된 유저 프로프리 200 반환")
     public void getProfile_success () throws Exception {
         Long userId = 1L;
@@ -220,7 +236,7 @@ public class UserControllerTest {
                                 fieldWithPath("data.email").type(STRING).description("이메일"),
                                 fieldWithPath("data.name").type(STRING).description("이름"),
                                 fieldWithPath("data.nickname").type(STRING).optional().description("닉네임 (미설정 시 null)"),
-                                fieldWithPath("data.phone").type(STRING).description("휴대폰 번호"),
+                                fieldWithPath("data.phone").type(STRING).optional().description("휴대폰 번호 (소셜 가입자는 null)"),
                                 fieldWithPath("data.userStatus").type(STRING).description("회원 상태 (ACTIVE, SUSPENDED 등)"),
                                 fieldWithPath("data.userRole").type(STRING).description("권한 (MEMBER, ADMIN). 관리자 메뉴 노출 판단용"),
                                 fieldWithPath("data.createdAt").type(STRING).description("가입 일시 (ISO-8601)")
@@ -287,7 +303,7 @@ public class UserControllerTest {
                                 fieldWithPath("data.email").type(STRING).description("이메일"),
                                 fieldWithPath("data.name").type(STRING).description("이름"),
                                 fieldWithPath("data.nickname").type(STRING).optional().description("닉네임 (미설정 시 null)"),
-                                fieldWithPath("data.phone").type(STRING).description("휴대폰 번호"),
+                                fieldWithPath("data.phone").type(STRING).optional().description("휴대폰 번호 (소셜 가입자는 null)"),
                                 fieldWithPath("data.userStatus").type(STRING).description("회원 상태"),
                                 fieldWithPath("data.userRole").type(STRING).description("권한 (MEMBER, ADMIN)"),
                                 fieldWithPath("data.createdAt").type(STRING).description("가입 일시")
@@ -331,7 +347,7 @@ public class UserControllerTest {
                                 fieldWithPath("data.email").type(STRING).description("이메일"),
                                 fieldWithPath("data.name").type(STRING).description("이름"),
                                 fieldWithPath("data.nickname").type(STRING).optional().description("닉네임 (미설정 시 null)"),
-                                fieldWithPath("data.phone").type(STRING).description("휴대폰 번호"),
+                                fieldWithPath("data.phone").type(STRING).optional().description("휴대폰 번호 (소셜 가입자는 null)"),
                                 fieldWithPath("data.userStatus").type(STRING).description("회원 상태 (ACTIVE, SUSPENDED 등)"),
                                 fieldWithPath("data.userRole").type(STRING).description("권한 (MEMBER, ADMIN)"),
                                 fieldWithPath("data.createdAt").type(STRING).description("가입 일시"),
@@ -396,7 +412,7 @@ public class UserControllerTest {
                                 fieldWithPath("success").type(BOOLEAN).description("요청 성공 여부 (true)"),
                                 fieldWithPath("data.content[].email").type(STRING).description("이메일"),
                                 fieldWithPath("data.content[].name").type(STRING).description("이름"),
-                                fieldWithPath("data.content[].phone").type(STRING).description("휴대폰 번호"),
+                                fieldWithPath("data.content[].phone").type(STRING).optional().description("휴대폰 번호 (소셜 가입자는 null)"),
                                 fieldWithPath("data.content[].createdAt").type(STRING).description("가입 일시"),
                                 fieldWithPath("data.content[].userRole").type(STRING).description("권한 (MEMBER, ADMIN)"),
                                 fieldWithPath("data.content[].userStatus").type(STRING).description("회원 상태"),
