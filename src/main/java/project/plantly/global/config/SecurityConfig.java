@@ -15,6 +15,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
@@ -27,6 +30,9 @@ import project.plantly.global.security.CustomUserDetailsService;
 import project.plantly.global.security.handler.RestAccessDeniedHandler;
 import project.plantly.global.security.handler.RestAuthenticationEntryPoint;
 import project.plantly.global.security.handler.RestLogoutSuccessHandler;
+import project.plantly.global.security.oauth2.OAuth2LoginFailureHandler;
+import project.plantly.global.security.oauth2.OAuth2LoginSuccessHandler;
+import project.plantly.global.security.oauth2.PlantlyOAuth2UserService;
 
 import java.util.List;
 
@@ -41,8 +47,18 @@ public class SecurityConfig {
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final RestLogoutSuccessHandler logoutSuccessHandler;
 
+    // 소셜 로그인(OAuth2) 부품 — global/security/oauth2, OAuth2ClientConfig 참고
+    private final PlantlyOAuth2UserService oauth2UserService;
+    private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oauth2LoginFailureHandler;
+    private final OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> authorizationCodeTokenResponseClient;
+    private final OAuth2AuthorizedClientRepository authorizedClientRepository;
+
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
+
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -113,6 +129,21 @@ public class SecurityConfig {
                 // remember-me 는 첫 배포에서 비활성화한다 — 세션 인증만 유지한다(유휴 만료는 server.servlet.session.timeout).
                 // 쿠키 발급도, 쿠키를 통한 자동 복구도 하지 않는다. 재도입 시 .rememberMe(...) 를 다시 붙인다
                 // (CustomRememberMeServices 참고).
+
+                // 소셜 로그인(네이버). 경로는 프레임워크 기본값이다.
+                //   인가 시작: GET /oauth2/authorization/{registrationId} → 제공자 로그인 화면으로 302
+                //   콜백:     GET /login/oauth2/code/{registrationId}     → 토큰 교환 → 사용자 정보 → 판정 → 세션 저장
+                // 두 경로 모두 인가 규칙(authorizeHttpRequests)보다 앞선 필터가 처리하므로 permitAll 이 필요 없다.
+                // 세션 ID 교체·CSRF 토큰 교체·SecurityContext 저장(위 securityContextRepository)도 필터가 한다.
+                .oauth2Login(oauth2 -> oauth2
+                        // 로그인 화면은 프론트다. 지정하지 않으면 스프링이 백엔드 /login 에 기본 로그인 페이지를 만든다.
+                        // (미인증 API 의 401 JSON 은 아래 exceptionHandling 의 진입점이 그대로 맡는다)
+                        .loginPage(frontendBaseUrl + "/login")
+                        .authorizedClientRepository(authorizedClientRepository)
+                        .tokenEndpoint(token -> token.accessTokenResponseClient(authorizationCodeTokenResponseClient))
+                        .userInfoEndpoint(userInfo -> userInfo.userService(oauth2UserService))
+                        .successHandler(oauth2LoginSuccessHandler)
+                        .failureHandler(oauth2LoginFailureHandler))
 
                 // 로그아웃: 세션 무효화 + 쿠키 제거.
                 // remember-me 쿠키는 .rememberMe() 가 있을 때 RememberMeServices 가 LogoutHandler 로 지워 줬지만,
