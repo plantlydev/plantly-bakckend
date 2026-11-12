@@ -34,7 +34,10 @@ public class User {
     @NotNull
     private String name;
 
-    @NotNull
+    // 소셜 가입자는 null 이다(네이버는 휴대폰을 수집하지 않고, 구글은 주지 않는다).
+    // 자체 회원가입은 요청 검증(SignUpRequest)에서 필수로 받는다.
+    // 로컬 DB 는 ddl-auto=update 가 NOT NULL 을 풀지 않으므로 수동으로 실행한다:
+    //   ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
     private String phone;
 
     private String nickname;

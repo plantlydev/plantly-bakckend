@@ -43,6 +43,19 @@ public class UserRepositoryTest {
     }
 
     @Test
+    @DisplayName("휴대폰 번호가 없는 회원(소셜 가입자)도 저장된다")
+    public void savesUserWithoutPhone (){
+        //given
+        User saved = userRepository.saveAndFlush(User.create("social@example.com", "encodedPw!", "홍길동", null));
+
+        //when
+        User found = userRepository.findById(saved.getId()).orElseThrow();
+
+        //then
+        assertThat(found.getPhone()).isNull();
+    }
+
+    @Test
     @DisplayName("같은 이메일 저장 요청 시 unique 제약 예외 발생")
     public void uniqueEmailConstraint (){
         //given
