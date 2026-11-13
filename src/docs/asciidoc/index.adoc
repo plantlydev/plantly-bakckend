@@ -122,6 +122,90 @@ include::{snippets}/users-me-update/http-response.adoc[]
 
 include::{snippets}/users-me-update/response-fields.adoc[]
 
+[[social]]
+== 소셜 로그인·가입
+
+소셜 로그인은 API 가 아니라 브라우저 페이지 이동으로 진행됩니다(fetch 로 호출하지 않습니다).
+
+. 로그인 버튼: 브라우저를 `/oauth2/authorization/naver` 로 이동시킵니다. 네이버 로그인 화면을 거쳐 콜백(`/login/oauth2/code/naver`)으로 돌아옵니다.
+. 콜백 결과에 따라 백엔드가 프론트 화면으로 리다이렉트합니다.
++
+[cols="3,4"]
+|===
+| 결과 | 이동
+
+| 연결된 회원 — 로그인 완료(`JSESSIONID` 발급) | `/`
+| 처음 온 사람 — 가입 대기 정보를 세션에 저장(10분 유효) | `/signup/social`
+| 연결된 회원이 정지·탈퇴 상태 | `/login?error=ACCOUNT_SUSPENDED`
+| 연결은 없고 같은 이메일의 회원이 있음 | `/login?error=EMAIL_IN_USE`
+| 그 밖의 실패(취소, 제공자 오류 등) | `/login?error=SOCIAL_LOGIN_FAILED`
+|===
+. 가입 화면(`/signup/social`)은 아래 두 API 로 가입한 뒤, 응답의 `loginUrl` 로 브라우저를 이동시켜 로그인합니다.
+
+두 API 는 로그인 전에 호출되며, 근거는 인증이 아니라 세션의 가입 대기 정보입니다. 가입 대기 정보가 없거나 만료되면 `401 SIGNUP_SESSION_EXPIRED` 이 반환되므로 로그인 화면으로 보내 소셜 로그인을 다시 시작합니다.
+
+[[social-pending]]
+=== 가입 대기 조회
+
+`GET /api/v1/auth/social/pending`
+
+==== 성공 응답 (200 OK)
+
+include::{snippets}/auth-social-pending/http-response.adoc[]
+
+include::{snippets}/auth-social-pending/response-fields.adoc[]
+
+==== 예외 응답
+
+===== 가입 대기 정보 없음·만료 (401 Unauthorized)
+
+include::{snippets}/auth-social-pending-expired/http-response.adoc[]
+
+include::{snippets}/auth-social-pending-expired/response-fields.adoc[]
+
+[[social-signup]]
+=== 소셜 가입
+
+회원·소셜 연결·동의 기록을 만듭니다. 로그인은 하지 않습니다. 변경 요청이므로 CSRF 토큰이 필요합니다(<<overview-auth>> 참고).
+
+==== 요청
+
+include::{snippets}/auth-social-signup/http-request.adoc[]
+
+include::{snippets}/auth-social-signup/request-fields.adoc[]
+
+==== 성공 응답 (201 Created)
+
+include::{snippets}/auth-social-signup/http-response.adoc[]
+
+include::{snippets}/auth-social-signup/response-fields.adoc[]
+
+==== 예외 응답
+
+[cols="1,2,4"]
+|===
+| 상태 | code | 의미
+
+| 401 | `SIGNUP_SESSION_EXPIRED` | 가입 대기 정보 없음·만료. 이미 가입을 마친 뒤 다시 보낸 경우도 여기다
+| 400 | `REQUIRED_CONSENT_MISSING` | 필수 항목 미동의
+| 400 | `NAME_REQUIRED` | 제공자가 이름을 주지 않았는데 `name` 도 없음
+| 400 | `INVALID_INPUT` | 요청 형식 오류(모르는 동의 항목, 이름 규칙 위반 등)
+| 409 | `EMAIL_IN_USE` | 대기 중에 같은 이메일의 회원이 생김
+| 409 | `ALREADY_SIGNED_UP` | 같은 소셜 계정이 이미 가입됨(동시 요청). `/oauth2/authorization/{제공자}` 로 이동하면 로그인된다
+|===
+
+===== 필수 항목 미동의 (400 Bad Request)
+
+include::{snippets}/auth-social-signup-required-consent-missing/http-response.adoc[]
+
+include::{snippets}/auth-social-signup-required-consent-missing/response-fields.adoc[]
+
+===== 같은 이메일 회원 있음 (409 Conflict)
+
+include::{snippets}/auth-social-signup-email-in-use/http-response.adoc[]
+
+include::{snippets}/auth-social-signup-email-in-use/response-fields.adoc[]
+
 [[company]]
 == 회사 (Company)
 

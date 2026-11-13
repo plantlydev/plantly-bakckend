@@ -175,10 +175,10 @@ class NaverOAuth2LoginFlowTest {
     }
 
     @Test
-    @DisplayName("연결도 같은 이메일도 없으면 SIGNUP_REQUIRED — 회원을 만들지 않는다(가입은 3단계)")
+    @DisplayName("연결도 같은 이메일도 없으면 가입 화면으로 보낸다 — 로그인도, 회원 생성도 하지 않는다(가입 흐름은 NaverSocialSignupFlowTest)")
     void newcomer_signupRequired() throws Exception {
         Authorization authorization = startAuthorization();
-        callback(authorization).andExpect(redirectedUrl(FRONT + "/login?error=SIGNUP_REQUIRED"));
+        callback(authorization).andExpect(redirectedUrl(FRONT + "/signup/social"));
 
         assertNotLoggedIn(authorization.session());
         assertThat(userRepository.count()).isZero();
