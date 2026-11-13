@@ -1,6 +1,7 @@
 package project.plantly.global.config;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,11 +23,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import project.plantly.global.security.CustomUserDetailsService;
+import project.plantly.global.security.handler.LocalLoginDisabledFilter;
 import project.plantly.global.security.handler.RestAccessDeniedHandler;
 import project.plantly.global.security.handler.RestAuthenticationEntryPoint;
 import project.plantly.global.security.handler.RestLogoutSuccessHandler;
@@ -59,6 +62,12 @@ public class SecurityConfig {
 
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
+
+    // 자체(이메일·비밀번호) 로그인·회원가입 허용 여부. 운영 기본값 false(소셜 전용), 로컬·테스트만 true.
+    @Value("${app.auth.local-login-enabled}")
+    private boolean localLoginEnabled;
+
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -165,6 +174,12 @@ public class SecurityConfig {
 
                 // h2-console iframe 렌더링 허용 (로컬 개발용)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        // 자체 로그인이 꺼져 있으면 로그인·회원가입 API 를 404 로 막는다(LocalLoginDisabledFilter).
+        // 위 permitAll 은 켜져 있을 때를 위한 것이고, 꺼져 있으면 요청이 그 규칙까지 가지 않는다.
+        if (!localLoginEnabled) {
+            http.addFilterBefore(new LocalLoginDisabledFilter(objectMapper), CsrfFilter.class);
+        }
 
         return http.build();
     }
