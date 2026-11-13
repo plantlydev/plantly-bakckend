@@ -29,6 +29,7 @@ import project.plantly.domain.auth.social.SocialAccount;
 import project.plantly.domain.auth.social.SocialProvider;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
+import project.plantly.domain.user.enums.UserRole;
 import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.security.UserPrincipal;
@@ -132,6 +133,38 @@ class NaverOAuth2LoginFlowTest {
         mockMvc.perform(get("/api/v1/users/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value(EMAIL));
+    }
+
+    @Test
+    @DisplayName("관리자도 네이버로 로그인한다 — 역할(ADMIN)이 그대로 권한이 되어 관리자 API 가 열린다")
+    void adminLogsInWithNaver() throws Exception {
+        // 최초 관리자는 운영 DB 에서 일회성 SQL 로 승격한다(docs/운영-최초-관리자-지정.md). 여기선 승격된 상태를 바로 만든다.
+        User admin = userRepository.save(User.builder()
+                .email(EMAIL).password("encoded").name("관리자").userRole(UserRole.ADMIN).build());
+        socialAccountRepository.save(SocialAccount.link(admin.getId(), SocialProvider.NAVER, NAVER_ID, EMAIL));
+
+        Authorization authorization = startAuthorization();
+        callback(authorization).andExpect(redirectedUrl(FRONT + "/"));
+
+        SecurityContext context = (SecurityContext) authorization.session()
+                .getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        assertThat(context.getAuthentication().getAuthorities())
+                .extracting(Object::toString).containsExactly("ROLE_ADMIN");
+        mockMvc.perform(get("/api/v1/admin/users").session(authorization.session()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("일반 회원은 네이버로 로그인해도 관리자 API 가 403")
+    void memberCannotUseAdminApi() throws Exception {
+        User user = userRepository.save(User.create(EMAIL, "encoded", "홍길동", null));
+        socialAccountRepository.save(SocialAccount.link(user.getId(), SocialProvider.NAVER, NAVER_ID, EMAIL));
+
+        Authorization authorization = startAuthorization();
+        callback(authorization).andExpect(redirectedUrl(FRONT + "/"));
+
+        mockMvc.perform(get("/api/v1/admin/users").session(authorization.session()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
