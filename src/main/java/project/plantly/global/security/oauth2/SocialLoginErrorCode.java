@@ -8,7 +8,8 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 // 프론트는 문구가 아니라 이 상수명으로 안내를 고른다(ErrorCode 상수명을 계약으로 쓰는 기존 규칙과 같다).
 public enum SocialLoginErrorCode {
 
-    // 연결도, 같은 이메일의 회원도 없다. 3단계에서 가입 대기 → /signup/social 로 바뀐다(지금은 임시로 로그인 화면).
+    // 연결도, 같은 이메일의 회원도 없다. 이 코드로는 로그인 화면에 가지 않는다 — 실패 핸들러가 가입 대기 정보를
+    // 세션에 담고 {프론트}/signup/social 로 보낸다(SocialSignupRequiredException 이 이 코드를 단다).
     SIGNUP_REQUIRED,
     // 연결된 회원이 정지·탈퇴 상태다. 자체 로그인의 UserErrorCode.ACCOUNT_SUSPENDED 와 같은 이름이다.
     ACCOUNT_SUSPENDED,

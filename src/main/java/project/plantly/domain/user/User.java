@@ -82,6 +82,16 @@ public class User {
                 .build();
     }
 
+    // 소셜 가입. 비밀번호는 아무도 모르는 랜덤 값의 해시다 — 컬럼이 NOT NULL 이라 채우지만 쓰이지 않는다
+    // (소셜 회원은 비밀번호로 로그인하지 않는다). 휴대폰은 받지 않는다.
+    public static User createSocial(String email, String unusableEncodedPassword, String name) {
+        return User.builder()
+                .email(email)
+                .password(unusableEncodedPassword)
+                .name(name)
+                .build();
+    }
+
     public void update (String name, String nickname, String phone){
         if (name != null) {this.name = name;}
         if (nickname != null ) {this.nickname = nickname;}

@@ -21,7 +21,8 @@ import java.util.Map;
 //  1) 사용자 정보 호출은 프레임워크 기본 구현(DefaultOAuth2UserService)에 맡긴다.
 //  2) 제공자 응답 → SocialProfile (extractor)
 //  3) 회원 판정은 도메인층(SocialLoginService)에 맡긴다.
-//  4) 판정 결과 → 로그인이면 OAuth2UserPrincipal, 아니면 OAuth2AuthenticationException(SocialLoginErrorCode).
+//  4) 판정 결과 → 로그인이면 OAuth2UserPrincipal, 가입 필요면 SocialSignupRequiredException(프로필을 싣고 감),
+//     그 밖에는 OAuth2AuthenticationException(SocialLoginErrorCode).
 //     예외는 필터가 받아 실패 핸들러로 넘기고, 실패 핸들러가 프론트로 오류 코드를 전달한다.
 //
 // OAuth2 provider 는 UserDetails.isEnabled() 를 보지 않는다. 정지 검사는 3) 판정이 대신한다.
@@ -57,8 +58,8 @@ public class PlantlyOAuth2UserService implements OAuth2UserService<OAuth2UserReq
                 case EMAIL_IN_USE -> SocialLoginErrorCode.EMAIL_IN_USE.exception("같은 이메일로 가입된 회원이 있다");
             };
         }
-        // SignupRequired: 3단계에서 가입 대기 정보를 세션에 넣고 가입 화면으로 보낸다.
-        throw SocialLoginErrorCode.SIGNUP_REQUIRED.exception("연결된 회원이 없다");
+        // SignupRequired: 실패 핸들러가 이 프로필을 가입 대기 정보로 세션에 넣고 가입 화면으로 보낸다.
+        throw new SocialSignupRequiredException(profile);
     }
 
     // registrationId("naver") ↔ SocialProvider(NAVER). 설정에 등록됐는데 extractor 가 없으면 로그인을 막는다.

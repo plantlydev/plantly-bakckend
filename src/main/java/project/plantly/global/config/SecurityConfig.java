@@ -86,6 +86,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/sign-up", "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        // 소셜 가입 화면의 API. 로그인 전에 호출되고, 근거는 세션의 가입 대기 정보다(없으면 401 SIGNUP_SESSION_EXPIRED).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/social/pending").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/social/signup").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         // 인증 옵션 목록은 누구에게나 허용 — 검색 필터 패널은 비로그인도 쓴다.
                         // (/api/v1/admin/certifications 와 경로가 달라 관리자 경로는 영향 없다)
