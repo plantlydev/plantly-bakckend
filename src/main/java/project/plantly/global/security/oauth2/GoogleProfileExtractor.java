@@ -9,8 +9,10 @@ import java.util.Map;
 
 // 구글 사용자 정보(https://www.googleapis.com/oauth2/v3/userinfo) 응답 변환.
 // 응답은 감싸지 않은 평평한 모양이다: {"sub":…,"email":…,"email_verified":true,"name":…,"picture":…}.
-// scope 는 profile·email 만 쓴다(openid 제외) — openid 가 있으면 OIDC 경로(OidcUserService)로 빠져
-// PlantlyOAuth2UserService 를 거치지 않는다.
+// scope 는 profile·email 만 쓴다(openid 제외). 이 설정이라 구글도 네이버와 같은 OAuth2 경로를 타고,
+// PlantlyOAuth2UserService 가 이 추출기를 불러 결과(SocialProfile)를 회원 판정(SocialLoginService)에 넘긴다.
+// scope 에 openid 를 넣으면 스프링이 OIDC 로그인으로 보고 OidcUserService 로 처리하므로,
+// PlantlyOAuth2UserService·이 추출기·회원 판정이 모두 건너뛰어진다.
 //
 // email_verified 가 true 가 아니면 거절한다. 회원 충돌(EMAIL_IN_USE)을 이메일 전체 문자열로 판정하므로,
 // 확인 안 된 이메일을 받으면 남의 이메일로 먼저 가입해 그 사람의 가입을 막을 수 있다.
