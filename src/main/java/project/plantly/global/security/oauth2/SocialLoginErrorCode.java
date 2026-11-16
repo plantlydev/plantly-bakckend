@@ -15,6 +15,8 @@ public enum SocialLoginErrorCode {
     ACCOUNT_SUSPENDED,
     // 연결 없이 같은 이메일의 회원이 이미 있다. 기존 방식으로 로그인하라고 안내한다.
     EMAIL_IN_USE,
+    // 이 소셜 계정은 탈퇴 후 재가입 제한 기간(24시간) 안이다. 기간이 지난 뒤 다시 시도하라고 안내한다.
+    REJOIN_RESTRICTED,
     // 그 밖의 전부: 사용자가 제공자 화면에서 취소함, 토큰·사용자 정보 호출 실패, 응답에 필수 값이 없음 등.
     SOCIAL_LOGIN_FAILED;
 

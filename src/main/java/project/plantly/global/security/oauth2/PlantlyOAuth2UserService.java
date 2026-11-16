@@ -56,6 +56,7 @@ public class PlantlyOAuth2UserService implements OAuth2UserService<OAuth2UserReq
             throw switch (rejected.reason()) {
                 case ACCOUNT_SUSPENDED -> SocialLoginErrorCode.ACCOUNT_SUSPENDED.exception("정지·탈퇴한 회원이다");
                 case EMAIL_IN_USE -> SocialLoginErrorCode.EMAIL_IN_USE.exception("같은 이메일로 가입된 회원이 있다");
+                case REJOIN_RESTRICTED -> SocialLoginErrorCode.REJOIN_RESTRICTED.exception("탈퇴 후 재가입 제한 기간이다");
             };
         }
         // SignupRequired: 실패 핸들러가 이 프로필을 가입 대기 정보로 세션에 넣고 가입 화면으로 보낸다.

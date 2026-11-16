@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.plantly.domain.auth.social.exception.SocialSignupErrorCode;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.consent.ConsentProperties;
@@ -34,6 +35,7 @@ public class SocialSignupService {
     private final UserConsentRepository userConsentRepository;
     private final ConsentProperties consentProperties;
     private final PasswordEncoder passwordEncoder;
+    private final RejoinRestriction rejoinRestriction;
 
     // 가입 화면에 보여 줄 동의 항목(표시 순서 = ConsentType 선언 순서).
     public List<ConsentTerm> consentTerms() {
@@ -54,6 +56,9 @@ public class SocialSignupService {
         // 가입 대기가 시작된 뒤(판정 시점)와 지금 사이에 상태가 바뀌었을 수 있어 다시 확인한다.
         if (socialAccountRepository.findByProviderAndProviderUserId(profile.provider(), profile.providerUserId()).isPresent()) {
             throw new BusinessException(SocialSignupErrorCode.ALREADY_SIGNED_UP);
+        }
+        if (rejoinRestriction.isRestricted(profile.provider(), profile.providerUserId())) {
+            throw new BusinessException(SocialSignupErrorCode.REJOIN_RESTRICTED);
         }
         if (userRepository.existsByEmail(profile.email())) {
             throw new BusinessException(SocialSignupErrorCode.EMAIL_IN_USE);
