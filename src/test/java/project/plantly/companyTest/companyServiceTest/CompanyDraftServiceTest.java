@@ -10,7 +10,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import project.plantly.domain.user.User;
-import project.plantly.domain.user.repository.UserRepository;
+import project.plantly.domain.user.ActiveUserGuard;
 import org.springframework.test.util.ReflectionTestUtils;
 import project.plantly.companyTest.support.CompanyCreateRequestBuilder;
 import project.plantly.domain.company.dto.CompanyDraftResponse;
@@ -54,7 +54,7 @@ class CompanyDraftServiceTest {
 
     @Mock CompanyDraftRepository draftRepository;
     @Mock CompanyVerificationRepository verificationRepository;
-    @Mock UserRepository userRepository;
+    @Mock ActiveUserGuard activeUserGuard;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private CompanyDraftService service;
@@ -75,11 +75,9 @@ class CompanyDraftServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CompanyDraftService(draftRepository, verificationRepository, userRepository, objectMapper);
-        // 저장은 첫 저장 경합을 막으려고 사용자 행을 잠근다(동시성 자체는 ConcurrentRequestErrorLeakTest 가 실제 DB 로 본다).
-        // 저장을 쓰지 않는 테스트도 있어 lenient 로 둔다.
-        lenient().when(userRepository.findByIdForUpdate(USER_ID))
-                .thenReturn(Optional.of(User.create("draft@plantly.test", "pw", "작성자", "01000000000")));
+        service = new CompanyDraftService(draftRepository, verificationRepository, activeUserGuard, objectMapper);
+        // 저장은 첫 저장 경합·탈퇴와의 경합을 막으려고 회원 행을 잠근다(ActiveUserGuard — mock 이라 여기선 아무 일도 안 한다).
+        // 동시성 자체는 ConcurrentRequestErrorLeakTest 가 실제 DB 로 본다.
     }
 
     // 이 사용자가 이 번호로 국세청을 통과한 이력이 있다고 가정한다(초안 접근 권한의 근거).

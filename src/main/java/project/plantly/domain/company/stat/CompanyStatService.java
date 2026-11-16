@@ -3,6 +3,7 @@ package project.plantly.domain.company.stat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.domain.company.enums.CompanyVisibility;
 import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyRepository;
@@ -20,10 +21,12 @@ public class CompanyStatService {
     private final CompanyRepository companyRepository;
     private final CompanyLikeRepository companyLikeRepository;
     private final CompanyFavoriteRepository companyFavoriteRepository;
+    private final ActiveUserGuard activeUserGuard;
 
     // 좋아요 등록(멱등). 이미 좋아요 중이면 아무 일도 일어나지 않는다.
     @Transactional
     public void like(Long userId, Long companyId) {
+        activeUserGuard.lock(userId); // 탈퇴와 겹쳐 탈퇴한 회원의 좋아요가 남지 않게(ActiveUserGuard)
         validateActiveCompany(companyId);
         companyLikeRepository.insertIfAbsent(userId, companyId);
     }
@@ -37,6 +40,7 @@ public class CompanyStatService {
     // 즐겨찾기 등록(멱등). 목록 노출은 조회 API(findByUserId...)가 별도로 담당한다.
     @Transactional
     public void favorite(Long userId, Long companyId) {
+        activeUserGuard.lock(userId);
         validateActiveCompany(companyId);
         companyFavoriteRepository.insertIfAbsent(userId, companyId);
     }

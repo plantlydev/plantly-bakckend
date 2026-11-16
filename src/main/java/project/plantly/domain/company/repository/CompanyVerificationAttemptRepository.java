@@ -1,5 +1,8 @@
 package project.plantly.domain.company.repository;
 
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
 import project.plantly.domain.company.entity.CompanyVerificationAttempt;
 import project.plantly.domain.company.enums.VerificationOutcome;
@@ -22,4 +25,9 @@ public interface CompanyVerificationAttemptRepository extends JpaRepository<Comp
      */
     long countByUserIdAndCreatedAtAfterAndOutcomeNotAndAutomaticFalse(
             Long userId, LocalDateTime since, VerificationOutcome excluded);
+
+    // 회원 탈퇴 정리(WithdrawalService). JPQL 벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다(리뷰 ⑥).
+    @Modifying
+    @Query("delete from CompanyVerificationAttempt x where x.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

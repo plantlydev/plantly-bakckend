@@ -35,4 +35,9 @@ public interface CompanyFavoriteRepository extends JpaRepository<CompanyFavorite
     // 목록 개인화용 배치 조회. 한 페이지의 회사 id 들 중 이 유저가 즐겨찾기한 것만 id 로 돌려준다(한 쿼리).
     @Query("select f.companyId from CompanyFavorite f where f.userId = :userId and f.companyId in :companyIds")
     List<Long> findFavoritedCompanyIds(@Param("userId") Long userId, @Param("companyIds") Collection<Long> companyIds);
+
+    // 회원 탈퇴 정리(WithdrawalService). JPQL 벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다(리뷰 ⑥).
+    @Modifying
+    @Query("delete from CompanyFavorite x where x.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.companyTest.support.CompanyCreateRequestBuilder;
 import project.plantly.companyTest.support.CompanyVerificationFixture;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
@@ -49,6 +50,9 @@ import static org.mockito.Mockito.verify;
 @DisplayName("CompanyService: 회사 등록 오케스트레이션")
 class CompanyServiceTest {
 
+    @Mock
+    private ActiveUserGuard activeUserGuard;
+
     @Mock CompanyRepository companyRepository;
     @Mock CompanyChildWriter childWriter;
     @Mock CompanyLinkWriter linkWriter;
@@ -67,7 +71,7 @@ class CompanyServiceTest {
     // 정책 리스트는 테스트마다 다르므로 생성자 직접 호출로 주입한다. (Mockito 가 List<인터페이스> mock 을 자동 주입하지 못함)
     private CompanyService service(CompanyRegistrationPolicy... policies) {
         return new CompanyService(companyRepository, childWriter, linkWriter, companyMemberRepository,
-                verificationRepository, draftRepository, searchDocumentWriter, List.of(policies));
+                verificationRepository, draftRepository, searchDocumentWriter, List.of(policies), activeUserGuard);
     }
 
     // 자가등록은 선행 인증을 소비하므로, 사용 가능한 인증이 조회된다고 가정한다.

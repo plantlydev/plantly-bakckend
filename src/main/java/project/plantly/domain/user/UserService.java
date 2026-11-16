@@ -25,6 +25,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final QUserRepository qUserRepository;
+    private final ActiveUserGuard activeUserGuard;
 
     //회원가입
     public void createUser (SignUpRequest request){
@@ -65,6 +66,8 @@ public class UserService {
     @Transactional
     public ProfileResponse updateUserProfile (Long userId, UpdateProfileRequest request){
 
+        // 탈퇴와 겹치면 탈퇴가 끝난 뒤 401 로 멈춘다. 잠그지 않으면 읽어 둔 옛 행으로 익명화를 덮어쓴다(ActiveUserGuard).
+        activeUserGuard.lock(userId);
         User user = userRepository.findById(userId).orElseThrow(
                 () -> new BusinessException(UserErrorCode.USER_NOT_FOUND)
         );

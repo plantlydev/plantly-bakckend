@@ -27,4 +27,9 @@ public interface CompanyDraftRepository extends JpaRepository<CompanyDraft, Long
     @Modifying
     @Query("delete from CompanyDraft d where d.userId = :userId and d.businessNumber = :businessNumber")
     void deleteByUserIdAndBusinessNumber(@Param("userId") Long userId, @Param("businessNumber") String businessNumber);
+
+    // 회원 탈퇴 정리(WithdrawalService). JPQL 벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다(리뷰 ⑥).
+    @Modifying
+    @Query("delete from CompanyDraft x where x.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

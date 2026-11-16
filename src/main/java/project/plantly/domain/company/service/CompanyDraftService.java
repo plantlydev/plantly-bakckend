@@ -16,7 +16,7 @@ import project.plantly.domain.company.exception.CompanyErrorCode;
 import project.plantly.domain.company.repository.CompanyDraftRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.support.BusinessNumbers;
-import project.plantly.domain.user.repository.UserRepository;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.global.exception.BusinessException;
 
 import java.util.EnumSet;
@@ -42,7 +42,7 @@ public class CompanyDraftService {
 
     private final CompanyDraftRepository draftRepository;
     private final CompanyVerificationRepository verificationRepository;
-    private final UserRepository userRepository;
+    private final ActiveUserGuard activeUserGuard;
     private final ObjectMapper objectMapper;
 
     // 발행에 다시 쓸 수 있는 인증 상태. 이유는 findResumableVerification 주석 참고.
@@ -62,8 +62,8 @@ public class CompanyDraftService {
     @Transactional
     public void save(Long userId, String rawBusinessNumber, MyCompanyCreateRequest payload) {
         // 인증된 요청의 사용자가 없다면 정합성이 깨진 것이다. 락 없이 넘어가면 직렬화가 소리 없이 풀리므로 막는다.
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new IllegalStateException("인증된 사용자 행이 없습니다: userId=" + userId));
+        // 탈퇴와 겹친 저장도 이 락에서 멈춘다(ActiveUserGuard).
+        activeUserGuard.lock(userId);
         String businessNumber = requireVerifiedBusinessNumber(userId, rawBusinessNumber);
         if (verificationRepository.existsConsumedByLiveCompany(userId, businessNumber)) {
             throw new BusinessException(CompanyErrorCode.VERIFICATION_ALREADY_USED);

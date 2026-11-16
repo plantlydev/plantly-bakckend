@@ -32,4 +32,9 @@ public interface CompanyLikeRepository extends JpaRepository<CompanyLike, Long> 
     // 목록 개인화용 배치 조회. 한 페이지의 회사 id 들 중 이 유저가 좋아요한 것만 id 로 돌려준다(행마다 N+1 없이 한 쿼리).
     @Query("select l.companyId from CompanyLike l where l.userId = :userId and l.companyId in :companyIds")
     List<Long> findLikedCompanyIds(@Param("userId") Long userId, @Param("companyIds") Collection<Long> companyIds);
+
+    // 회원 탈퇴 정리(WithdrawalService). JPQL 벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다(리뷰 ⑥).
+    @Modifying
+    @Query("delete from CompanyLike x where x.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

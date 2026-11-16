@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.dto.response.AdminUserListResponse;
 import project.plantly.domain.user.repository.QUserRepository;
@@ -52,6 +53,9 @@ public class UserServiceTest {
 
     @Mock
     private QUserRepository qUserRepository;
+
+    @Mock
+    private ActiveUserGuard activeUserGuard;
 
     @InjectMocks
     private UserService userService;
