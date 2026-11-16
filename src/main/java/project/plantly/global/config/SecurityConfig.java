@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResp
 import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -28,7 +29,9 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.security.CustomUserDetailsService;
+import project.plantly.global.security.SessionUserRevalidationFilter;
 import project.plantly.global.security.handler.LocalLoginDisabledFilter;
 import project.plantly.global.security.handler.RestAccessDeniedHandler;
 import project.plantly.global.security.handler.RestAuthenticationEntryPoint;
@@ -68,6 +71,9 @@ public class SecurityConfig {
     private boolean localLoginEnabled;
 
     private final ObjectMapper objectMapper;
+
+    // 세션 재검증(SessionUserRevalidationFilter)이 요청마다 사용자 상태·역할을 다시 읽는 데 쓴다.
+    private final UserRepository userRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -180,6 +186,10 @@ public class SecurityConfig {
         if (!localLoginEnabled) {
             http.addFilterBefore(new LocalLoginDisabledFilter(objectMapper), CsrfFilter.class);
         }
+
+        // 로그인된 세션이 지금도 ACTIVE 이고 역할이 같은지 요청마다 확인한다. 아니면 세션을 끊고 익명으로 진행한다.
+        // 세션에서 컨텍스트를 꺼낸 뒤·익명 토큰을 넣기 전 자리여야 한다 → AnonymousAuthenticationFilter 앞.
+        http.addFilterBefore(new SessionUserRevalidationFilter(userRepository), AnonymousAuthenticationFilter.class);
 
         return http.build();
     }
