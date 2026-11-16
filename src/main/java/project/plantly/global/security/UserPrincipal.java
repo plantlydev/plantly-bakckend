@@ -5,6 +5,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import project.plantly.domain.user.User;
+import project.plantly.domain.user.enums.UserRole;
 import project.plantly.domain.user.enums.UserStatus;
 
 import java.util.Collection;
@@ -18,7 +19,12 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getUserRole().name()));
+        return List.of(authorityOf(user.getUserRole()));
+    }
+
+    // 역할 → 권한 변환 규칙의 단일 출처. 세션 재검증(SessionUserRevalidationFilter)도 같은 규칙으로 비교한다.
+    public static GrantedAuthority authorityOf(UserRole role) {
+        return new SimpleGrantedAuthority("ROLE_" + role.name());
     }
 
     @Override public String getPassword() { return user.getPassword(); }

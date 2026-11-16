@@ -13,6 +13,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
 
+    // 로그인된 세션이 요청마다 현재 상태·역할을 다시 확인할 때 쓴다(SessionUserRevalidationFilter).
+    @Query("select new project.plantly.domain.user.repository.UserAuthState(u.userStatus, u.userRole) "
+            + "from User u where u.id = :id")
+    Optional<UserAuthState> findAuthStateById(@Param("id") Long id);
+
     /**
      * 사용자 행을 {@code SELECT ... FOR UPDATE} 로 잠근다. 사용자 단위로 "확인 후 기록" 을 직렬화할 때 쓴다
      * (현재 사용처: 국세청 일일 시도 한도 예약, {@code CompanyVerificationWriter#reserveAttempt}).
