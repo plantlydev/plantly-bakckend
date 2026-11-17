@@ -107,6 +107,7 @@ class WithdrawalServiceTest extends PostgresContainerTest {
         for (Long companyId : companyIds) {
             jdbcTemplate.update("delete from company_like where company_id = ?", companyId);
             jdbcTemplate.update("delete from company_favorite where company_id = ?", companyId);
+            jdbcTemplate.update("delete from company_contact where company_id = ?", companyId);
             jdbcTemplate.update("delete from company_member where company_id = ?", companyId);
             jdbcTemplate.update("delete from company where id = ?", companyId);
         }
@@ -135,6 +136,9 @@ class WithdrawalServiceTest extends PostgresContainerTest {
 
         Long otherId = saveUser("other-" + UUID.randomUUID() + "@plantly.test", UserRole.MEMBER, UserStatus.ACTIVE);
         Long othersCompany = saveCompany(otherId, randomBusinessNumber());
+        insertContact(liveCompany);
+        insertContact(alreadyDeleted);
+        insertContact(othersCompany);
 
         insertStat("company_like", memberId, othersCompany);
         insertStat("company_favorite", memberId, othersCompany);
@@ -151,11 +155,24 @@ class WithdrawalServiceTest extends PostgresContainerTest {
         assertThat(result.deletedCompanies()).isEqualTo(2);
         assertThat(result.providers()).containsExactly(SocialProvider.NAVER);
 
-        // 소유 회사: 함께 삭제(soft), 검색 도큐먼트 갱신. 남의 회사는 그대로.
-        assertThat(companyRepository.findById(liveCompany).orElseThrow().isDeleted()).isTrue();
-        assertThat(companyRepository.findById(alreadyDeleted).orElseThrow().isDeleted()).isTrue();
-        assertThat(companyRepository.findById(othersCompany).orElseThrow().isDeleted()).isFalse();
-        verify(searchDocumentWriter).write(liveCompany);
+        // 소유 회사: 함께 삭제(soft) + 대표자명 익명화·국세청 인증 회수·연락처 삭제·검색 도큐먼트 갱신.
+        // 이미 삭제돼 있던 회사도 같은 처리를 받는다(대표자명·연락처·도큐먼트가 남아 있었으므로).
+        for (Long companyId : List.of(liveCompany, alreadyDeleted)) {
+            Company company = companyRepository.findById(companyId).orElseThrow();
+            assertThat(company.isDeleted()).isTrue();
+            assertThat(company.getCeoName()).isEqualTo(User.WITHDRAWN_NAME);
+            assertThat(company.isBusinessVerified()).isFalse();
+            assertThat(company.getBusinessVerifiedAt()).isNull();
+            assertThat(company.getBusinessNumber()).isNotNull();   // 사업자번호는 남는다(활성 유니크·분쟁 기록)
+            assertThat(countContacts(companyId)).isZero();
+            verify(searchDocumentWriter).write(companyId);
+        }
+        // 남의 회사는 그대로.
+        Company others = companyRepository.findById(othersCompany).orElseThrow();
+        assertThat(others.isDeleted()).isFalse();
+        assertThat(others.getCeoName()).isEqualTo("홍길동");
+        assertThat(others.isBusinessVerified()).isTrue();
+        assertThat(countContacts(othersCompany)).isEqualTo(1);
 
         // 회원에 딸린 데이터는 전부 지워진다.
         for (String table : List.of("company_member", "company_draft", "company_like", "company_favorite",
@@ -302,6 +319,7 @@ class WithdrawalServiceTest extends PostgresContainerTest {
         Company company = Company.createByUser(ownerId, businessNumber, "탈퇴회사", "홍길동",
                 LocalDate.of(2020, 1, 2), Address.of("06236", "서울 강남구", null, "테헤란로 1"),
                 null, "logo", null, "요약", "본문", null, null, null, null, null, null);
+        company.markBusinessVerified(LocalDateTime.now());
         Long id = companyRepository.save(company).getId();
         memberRepository.save(CompanyMember.owner(id, ownerId));
         companyIds.add(id);
@@ -311,6 +329,16 @@ class WithdrawalServiceTest extends PostgresContainerTest {
     private void insertStat(String table, Long userId, Long companyId) {
         jdbcTemplate.update("insert into " + table + " (user_id, company_id, created_at) values (?, ?, now())",
                 userId, companyId);
+    }
+
+    private void insertContact(Long companyId) {
+        jdbcTemplate.update("insert into company_contact (company_id, contact_name, position, phone, email, display_order,"
+                + " representative, created_at, updated_at) values (?, '담당자', '팀장', '01012345678', 'contact@plantly.test',"
+                + " 0, true, now(), now())", companyId);
+    }
+
+    private int countContacts(Long companyId) {
+        return jdbcTemplate.queryForObject("select count(*) from company_contact where company_id = ?", Integer.class, companyId);
     }
 
     private int countByUser(String table, Long userId) {

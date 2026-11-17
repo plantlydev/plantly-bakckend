@@ -85,6 +85,11 @@ public class CompanyChildWriter {
         saveContacts(company, contacts);
     }
 
+    // 연락처 전부 삭제(소유자 회원 탈퇴 — 담당자명·직책·전화·이메일은 개인정보다). 회사 행 락 아래에서 부른다.
+    public void deleteContacts(Company company) {
+        contactRepository.deleteByCompanyId(company.getId());
+    }
+
     // 레퍼런스 교체: 딸린 프로젝트 이미지를 먼저 삭제(FK 정리)한 뒤 레퍼런스를 삭제·재저장한다.
     public void replaceReferences(Company company, List<CompanyCreateRequest.ReferenceRequest> references) {
         imageRepository.deleteByCompanyIdAndProjectReferenceIsNotNull(company.getId());
