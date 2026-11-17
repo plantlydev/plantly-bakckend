@@ -15,6 +15,7 @@ import project.plantly.domain.auth.social.SocialLoginResult.SignupRequired;
 import project.plantly.domain.auth.social.SocialLoginService;
 import project.plantly.domain.auth.social.SocialProfile;
 import project.plantly.domain.auth.social.SocialProvider;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.enums.UserStatus;
@@ -39,6 +40,9 @@ class SocialLoginServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RejoinRestriction rejoinRestriction;
 
     @InjectMocks
     private SocialLoginService socialLoginService;
@@ -116,6 +120,30 @@ class SocialLoginServiceTest {
         socialLoginService.resolve(PROFILE);
 
         verify(userRepository, never()).existsByEmail("member@naver.com");
+    }
+
+    @Test
+    @DisplayName("연결이 없고 탈퇴 직후(재가입 제한 기간)인 소셜 계정이면 거절(REJOIN_RESTRICTED) — 가입 화면으로 보내지 않는다")
+    void noLinkButRecentlyWithdrawn_rejected() {
+        given(socialAccountRepository.findByProviderAndProviderUserId(SocialProvider.NAVER, "naver-1"))
+                .willReturn(Optional.empty());
+        given(rejoinRestriction.isRestricted(SocialProvider.NAVER, "naver-1")).willReturn(true);
+
+        SocialLoginResult result = socialLoginService.resolve(PROFILE);
+
+        assertThat(result).isEqualTo(new Rejected(RejectReason.REJOIN_RESTRICTED));
+        verify(userRepository, never()).existsByEmail(PROFILE.email());
+    }
+
+    @Test
+    @DisplayName("연결된 회원의 로그인에는 재가입 제한을 확인하지 않는다")
+    void linkedUser_skipsRejoinCheck() {
+        givenLinkedTo(10L);
+        given(userRepository.findById(10L)).willReturn(Optional.of(user(UserStatus.ACTIVE)));
+
+        socialLoginService.resolve(PROFILE);
+
+        verify(rejoinRestriction, never()).isRestricted(PROFILE.provider(), PROFILE.providerUserId());
     }
 
     private void givenLinkedTo(Long userId) {

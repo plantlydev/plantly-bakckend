@@ -24,6 +24,8 @@ public sealed interface SocialLoginResult {
         // 연결은 없는데 같은 이메일의 회원이 이미 있다(자체 가입·다른 제공자).
         // 먼저 가입한 쪽을 살린다 — 새 회원을 만들지도, 자동으로 연결하지도 않는다.
         // 연결은 기존 방식으로 로그인한 뒤 계정 설정에서 한다(후속 작업).
-        EMAIL_IN_USE
+        EMAIL_IN_USE,
+        // 연결은 없지만 이 소셜 계정은 탈퇴한 지 얼마 안 됐다(app.rejoin.block-duration 안). 기간이 지나면 가입할 수 있다.
+        REJOIN_RESTRICTED
     }
 }

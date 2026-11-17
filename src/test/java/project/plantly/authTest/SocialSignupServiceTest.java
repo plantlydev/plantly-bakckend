@@ -15,6 +15,7 @@ import project.plantly.domain.auth.social.SocialProfile;
 import project.plantly.domain.auth.social.SocialProvider;
 import project.plantly.domain.auth.social.SocialSignupService;
 import project.plantly.domain.auth.social.exception.SocialSignupErrorCode;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.consent.ConsentProperties;
@@ -56,6 +57,8 @@ class SocialSignupServiceTest {
     private UserConsentRepository userConsentRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private RejoinRestriction rejoinRestriction;
 
     private SocialSignupService service;
 
@@ -67,7 +70,7 @@ class SocialSignupServiceTest {
                 ConsentType.PRIVACY_COLLECTION, "v3",
                 ConsentType.MARKETING, "v1"));
         service = new SocialSignupService(userRepository, socialAccountRepository, userConsentRepository,
-                consentProperties, passwordEncoder);
+                consentProperties, passwordEncoder, rejoinRestriction);
     }
 
     @Test
@@ -211,6 +214,18 @@ class SocialSignupServiceTest {
     }
 
     // ---- 헬퍼 ----
+
+    @Test
+    @DisplayName("가입 대기 중에 이 소셜 계정의 탈퇴 흔적이 생겼으면 REJOIN_RESTRICTED — 아무것도 저장하지 않는다")
+    void recentlyWithdrawn_rejected() {
+        given(rejoinRestriction.isRestricted(SocialProvider.NAVER, "naver-1")).willReturn(true);
+
+        assertThatThrownBy(() -> service.signup(PROFILE, null, REQUIRED_ONLY))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(SocialSignupErrorCode.REJOIN_RESTRICTED));
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+        verify(socialAccountRepository, never()).saveAndFlush(any(SocialAccount.class));
+    }
 
     private void givenSavable() {
         given(socialAccountRepository.findByProviderAndProviderUserId(SocialProvider.NAVER, "naver-1"))

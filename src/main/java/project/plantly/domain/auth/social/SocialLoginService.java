@@ -7,6 +7,7 @@ import project.plantly.domain.auth.social.SocialLoginResult.LoggedIn;
 import project.plantly.domain.auth.social.SocialLoginResult.Rejected;
 import project.plantly.domain.auth.social.SocialLoginResult.RejectReason;
 import project.plantly.domain.auth.social.SocialLoginResult.SignupRequired;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.enums.UserStatus;
@@ -22,6 +23,7 @@ public class SocialLoginService {
 
     private final SocialAccountRepository socialAccountRepository;
     private final UserRepository userRepository;
+    private final RejoinRestriction rejoinRestriction;
 
     @Transactional(readOnly = true)
     public SocialLoginResult resolve(SocialProfile profile) {
@@ -40,6 +42,12 @@ public class SocialLoginService {
                 return new Rejected(RejectReason.ACCOUNT_SUSPENDED);
             }
             return new LoggedIn(user);
+        }
+
+        // 탈퇴 직후(app.rejoin.block-duration) 같은 소셜 계정은 다시 가입할 수 없다. 가입 화면으로 보내기 전에 막는다.
+        // 탈퇴하면 이메일이 익명화되므로 아래 이메일 검사에는 걸리지 않는다 — 이 검사가 따로 필요한 이유다.
+        if (rejoinRestriction.isRestricted(profile.provider(), profile.providerUserId())) {
+            return new Rejected(RejectReason.REJOIN_RESTRICTED);
         }
 
         // 이메일 비교는 전체 문자열 그대로다. 제공자가 다르면 같은 사람이어도 이메일이 같을 때만 겹친다.

@@ -27,6 +27,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import project.plantly.DatabaseCleanup;
 import project.plantly.domain.auth.social.SocialAccount;
 import project.plantly.domain.auth.social.SocialProvider;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.enums.UserRole;
@@ -71,6 +72,9 @@ class NaverOAuth2LoginFlowTest {
 
     @Autowired
     private DatabaseCleanup databaseCleanup;
+
+    @Autowired
+    private RejoinRestriction rejoinRestriction;
 
     @MockitoBean
     private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> tokenResponseClient;
@@ -205,6 +209,18 @@ class NaverOAuth2LoginFlowTest {
         assertNotLoggedIn(authorization.session());
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(socialAccountRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("탈퇴 직후 같은 네이버 계정으로 오면 REJOIN_RESTRICTED — 가입 화면으로 보내지 않는다")
+    void recentlyWithdrawn_rejected() throws Exception {
+        rejoinRestriction.record(SocialProvider.NAVER, NAVER_ID);
+
+        Authorization authorization = startAuthorization();
+        callback(authorization).andExpect(redirectedUrl(FRONT + "/login?error=REJOIN_RESTRICTED"));
+
+        assertNotLoggedIn(authorization.session());
+        assertThat(userRepository.count()).isZero();
     }
 
     @Test

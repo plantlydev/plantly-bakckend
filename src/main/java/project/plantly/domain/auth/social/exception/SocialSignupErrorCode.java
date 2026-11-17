@@ -17,6 +17,8 @@ public enum SocialSignupErrorCode implements ErrorCode {
     NAME_REQUIRED(HttpStatus.BAD_REQUEST, "이름을 입력해 주세요."),
     // 가입 대기 중에 같은 이메일의 회원이 생겼다(대기 시작 때는 없었다).
     EMAIL_IN_USE(HttpStatus.CONFLICT, "같은 이메일로 가입된 회원이 있습니다."),
+    // 가입 대기 중에 이 소셜 계정의 탈퇴 흔적이 생겼다(판정 시점엔 없었다). 로그인 판정의 REJOIN_RESTRICTED 와 같은 뜻이다.
+    REJOIN_RESTRICTED(HttpStatus.FORBIDDEN, "탈퇴 후 24시간 동안은 같은 계정으로 다시 가입할 수 없습니다."),
     // 같은 소셜 계정이 이미 연결됐다 — 가입 버튼을 두 번 누른 경우 등. 프론트는 재인가로 로그인하면 된다.
     ALREADY_SIGNED_UP(HttpStatus.CONFLICT, "이미 가입된 계정입니다.");
 
