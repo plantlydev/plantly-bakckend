@@ -19,6 +19,9 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 public class User {
 
+    public static final String WITHDRAWN_NAME = "탈퇴회원";
+    private static final String WITHDRAWN_PASSWORD = "WITHDRAWN";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -90,6 +93,21 @@ public class User {
                 .password(unusableEncodedPassword)
                 .name(name)
                 .build();
+    }
+
+    // 회원 탈퇴: 행은 남기고(회사 registeredBy 등 이력 참조 유지) 개인정보를 지운다.
+    //  - email: 유니크·NOT NULL 이라 비울 수 없어 id 기반의 존재할 수 없는 주소로 바꾼다(.invalid 는 예약 도메인).
+    //    원래 이메일이 풀리므로 같은 이메일로 다른 가입 수단을 쓰는 데도 걸리지 않는다.
+    //  - password: 해시도 지운다. BCrypt 형식이 아니라 어떤 입력과도 일치하지 않는다(자체 로그인을 다시 열어도 로그인 불가).
+    //  - 상태 WITHDRAWN + 탈퇴 시각. 역할은 그대로 둔다(탈퇴는 MEMBER 만 가능하다).
+    public void withdraw(LocalDateTime now) {
+        this.email = "withdrawn-" + id + "@withdrawn.invalid";
+        this.password = WITHDRAWN_PASSWORD;
+        this.name = WITHDRAWN_NAME;
+        this.phone = null;
+        this.nickname = null;
+        this.userStatus = UserStatus.WITHDRAWN;
+        this.deletedAt = now;
     }
 
     public void update (String name, String nickname, String phone){

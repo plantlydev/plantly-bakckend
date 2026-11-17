@@ -3,6 +3,7 @@ package project.plantly.domain.company.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.domain.company.entity.Company;
 import project.plantly.domain.company.entity.CompanyVerification;
 import project.plantly.domain.company.entity.CompanyVerificationAttempt;
@@ -13,7 +14,6 @@ import project.plantly.domain.company.repository.CompanyRepository;
 import project.plantly.domain.company.repository.CompanyVerificationAttemptRepository;
 import project.plantly.domain.company.repository.CompanyVerificationRepository;
 import project.plantly.domain.company.search.CompanySearchDocumentWriter;
-import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.exception.BusinessException;
 
 import java.time.Duration;
@@ -38,7 +38,7 @@ public class CompanyVerificationWriter {
     private final CompanyVerificationRepository verificationRepository;
     private final CompanyVerificationAttemptRepository attemptRepository;
     private final CompanyRepository companyRepository;
-    private final UserRepository userRepository;
+    private final ActiveUserGuard activeUserGuard;
 
     // 재인증은 회사 본체(대표자명·개업일자)까지 갱신하므로 소유 검증과 검색 재색인이 필요하다.
     // 이 컴포넌트가 인증 흐름의 DB 접근을 전담하는 자리라 여기서 함께 다룬다.
@@ -64,8 +64,8 @@ public class CompanyVerificationWriter {
     public Long reserveAttempt(Long userId, String businessNumber, String ceoName, LocalDate businessStartDate,
                                LocalDateTime startOfDay, int dailyLimit) {
         // 인증된 요청의 사용자가 없다면 데이터 정합성이 깨진 것이다. 조용히 락 없이 넘어가면 직렬화가 소리 없이 풀리므로 막는다.
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new IllegalStateException("인증된 사용자 행이 없다: userId=" + userId));
+        // 탈퇴와 겹친 시도도 이 락에서 멈춘다(ActiveUserGuard).
+        activeUserGuard.lock(userId);
 
         long used = attemptRepository.countByUserIdAndCreatedAtAfterAndOutcomeNotAndAutomaticFalse(
                 userId, startOfDay, VerificationOutcome.UNAVAILABLE);

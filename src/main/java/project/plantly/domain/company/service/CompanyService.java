@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.plantly.domain.user.ActiveUserGuard;
 import project.plantly.domain.company.dto.CompanyCreateRequest;
 import project.plantly.domain.company.dto.MyCompanyCreateRequest;
 import project.plantly.domain.company.entity.Address;
@@ -49,6 +50,9 @@ public class CompanyService {
     // 새 정책은 CompanyRegistrationPolicy 구현 @Component 추가만으로 자동 합류한다.
     private final List<CompanyRegistrationPolicy> registrationPolicies;
 
+    // 회원 데이터 쓰기 입구 — 탈퇴와 겹친 등록을 막는다.
+    private final ActiveUserGuard activeUserGuard;
+
     // 유저 자가등록: 선행 인증을 소비해 신원 3종을 채우고, 등록 즉시 소유자 = 본인 + 사업자 인증 완료 상태가 된다.
     // 컬렉션 한도는 등록 경로와 무관하게 하나다(CompanyConstraints). 폼이 같은 값을 제약 조회 API 로 받아
     // 안내하므로, 여기서 거부되는 건 폼을 우회한 요청뿐이다.
@@ -58,6 +62,8 @@ public class CompanyService {
     // 국세청 통과만으로는 소유권을 증명하지 못한다(그 경로 = 클레임은 아직 열지 않았다).
     @Transactional
     public Long createByUser(Long userId, MyCompanyCreateRequest myRequest) {
+        // 회원 행을 잠그고 ACTIVE 를 확인한다. 탈퇴와 겹친 등록이 탈퇴 뒤에 소유자 없는 공개 회사를 만들지 않게 한다(ActiveUserGuard).
+        activeUserGuard.lock(userId);
         CompanyVerification verification = loadUsableVerification(userId, myRequest.verificationId());
         CompanyCreateRequest request = myRequest.toCreateRequest(verification);
 
