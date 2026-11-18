@@ -36,6 +36,7 @@ import project.plantly.global.security.oauth2.SocialTokenRevoker;
 import project.plantly.global.security.oauth2.WithdrawalReauthStore;
 import project.plantly.global.security.oauth2.WithdrawalReauthStore.WithdrawalReauth;
 
+import com.jayway.jsonpath.JsonPath;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -56,7 +57,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 회원 탈퇴 전체 흐름: 네이버 로그인 → 탈퇴 시작 API(의도 저장) → 재인가 → 콜백에서 탈퇴·연동 해제·세션 정리.
+// 회원 탈퇴 전체 흐름: 네이버 로그인 → 탈퇴 시작 API(의도·난수 저장) → 탈퇴 전용 재인가 → 콜백에서 탈퇴·연동 해제·세션 정리.
+// 같은 세션의 일반 소셜 로그인 콜백이 탈퇴를 완료하지 못하는지도 본다(WithdrawalAuthorization).
 // 제공자와 통신하는 세 호출(토큰 교환, 사용자 정보, 연동 해제)만 가짜로 바꾸고 나머지는 실제 보안 설정 그대로 돈다.
 // 다른 소셜 흐름 테스트와 같은 MockitoBean 구성이라 스프링 컨텍스트를 공유한다.
 // 소유 회사 삭제(검색 도큐먼트 갱신이 Postgres 전용)는 WithdrawalServiceTest 가 실제 Postgres 로 본다 — 여기 회원은 회사가 없다.
@@ -122,11 +124,15 @@ class WithdrawalFlowTest {
     void start() throws Exception {
         MockHttpSession session = login();
 
-        startWithdrawal(session)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.reauthUrl").value("/oauth2/authorization/naver"));
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
-        assertThat(session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE)).isInstanceOf(WithdrawalReauth.class);
+        WithdrawalReauth intent = (WithdrawalReauth) session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE);
+        assertThat(reauthUrl).isEqualTo("/oauth2/authorization/naver?withdrawal=" + intent.nonce());
+        assertThat(intent.nonce()).hasSizeGreaterThanOrEqualTo(43);
+
+        // 난수는 우리 서버 안에서만 쓴다 — 제공자로 가는 주소에는 실리지 않는다.
+        String providerUrl = mockMvc.perform(get(reauthUrl).session(session)).andReturn().getResponse().getRedirectedUrl();
+        assertThat(providerUrl).doesNotContain(intent.nonce()).doesNotContain("withdrawal");
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
@@ -158,9 +164,9 @@ class WithdrawalFlowTest {
     @DisplayName("같은 회원으로 확인하면 탈퇴 → 방금 받은 토큰으로 연동 해제 → 세션 종료 → /withdrawn")
     void withdrawSucceeds() throws Exception {
         MockHttpSession session = login();
-        startWithdrawal(session).andExpect(status().isOk());
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
-        reauthenticate(session)
+        reauthenticate(session, reauthUrl)
                 .andExpect(redirectedUrl(FRONT + "/withdrawn"))
                 .andExpect(cookie().maxAge("JSESSIONID", 0));
 
@@ -183,9 +189,9 @@ class WithdrawalFlowTest {
     void revokeFailureKeepsWithdrawal() throws Exception {
         given(tokenRevoker.revoke(any(), any())).willReturn(false);
         MockHttpSession session = login();
-        startWithdrawal(session).andExpect(status().isOk());
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
-        reauthenticate(session)
+        reauthenticate(session, reauthUrl)
                 .andExpect(redirectedUrl(FRONT + "/withdrawn?unlinkFailed=NAVER"))
                 .andExpect(cookie().maxAge("JSESSIONID", 0));
 
@@ -198,10 +204,10 @@ class WithdrawalFlowTest {
         User other = userRepository.save(User.create("other@naver.com", "encoded", "김철수", null));
         socialAccountRepository.save(SocialAccount.link(other.getId(), SocialProvider.NAVER, "naver-other", "other@naver.com"));
         MockHttpSession session = login();
-        startWithdrawal(session).andExpect(status().isOk());
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
         given(userInfoClient.loadUser(any())).willReturn(naverUser("naver-other", "other@naver.com"));
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/login?error=WITHDRAWAL_REAUTH_MISMATCH"));
+        reauthenticate(session, reauthUrl).andExpect(redirectedUrl(FRONT + "/login?error=WITHDRAWAL_REAUTH_MISMATCH"));
 
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(userRepository.findById(other.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
@@ -214,10 +220,10 @@ class WithdrawalFlowTest {
     @DisplayName("가입 안 된 소셜 계정으로 확인하면 탈퇴하지 않고, 가입 대기도 만들지 않고, 로그인된 채 탈퇴 화면으로")
     void unlinkedAccountMismatch() throws Exception {
         MockHttpSession session = login();
-        startWithdrawal(session).andExpect(status().isOk());
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
         given(userInfoClient.loadUser(any())).willReturn(naverUser("naver-stranger", "stranger@naver.com"));
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_REAUTH_MISMATCH"));
+        reauthenticate(session, reauthUrl).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_REAUTH_MISMATCH"));
 
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(session.getAttribute(PendingSocialSignupStore.SESSION_ATTRIBUTE)).isNull();
@@ -230,9 +236,9 @@ class WithdrawalFlowTest {
     @DisplayName("제공자 화면에서 취소하면 로그인된 채 탈퇴 화면으로 — 의도는 1회용이라 다음 콜백은 보통 로그인이다")
     void cancelled() throws Exception {
         MockHttpSession session = login();
-        startWithdrawal(session).andExpect(status().isOk());
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
 
-        String state = startAuthorization(session);
+        String state = startAuthorization(session, reauthUrl);
         mockMvc.perform(get("/login/oauth2/code/naver")
                         .param("error", "access_denied")
                         .param("state", state)
@@ -242,8 +248,11 @@ class WithdrawalFlowTest {
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
         mockMvc.perform(get("/api/v1/users/me").session(session)).andExpect(status().isOk());
 
-        // 의도가 지워졌으므로 다시 소셜 로그인하면 탈퇴가 아니라 로그인이다.
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/"));
+        // 의도는 1회용이라 지워졌다 — 같은 탈퇴 주소로 다시 와도 탈퇴하지 않고, 일반 로그인은 그대로 로그인이다.
+        assertThat(session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE)).isNull();
+        reauthenticate(session, reauthUrl)
+                .andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
+        reauthenticate(session, "/oauth2/authorization/naver").andExpect(redirectedUrl(FRONT + "/"));
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
@@ -252,9 +261,10 @@ class WithdrawalFlowTest {
     void expiredIntent() throws Exception {
         MockHttpSession session = login();
         session.setAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE,
-                new WithdrawalReauth(member.getId(), SocialProvider.NAVER, Instant.now().minusSeconds(1)));
+                new WithdrawalReauth(member.getId(), SocialProvider.NAVER, Instant.now().minusSeconds(1), "nonce-1"));
+        String reauthUrl = "/oauth2/authorization/naver?withdrawal=nonce-1";
 
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
+        reauthenticate(session, reauthUrl).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
 
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
         verify(tokenRevoker, never()).revoke(any(), any());
@@ -265,12 +275,88 @@ class WithdrawalFlowTest {
     void otherProviderMismatch() throws Exception {
         MockHttpSession session = login();
         session.setAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE,
-                new WithdrawalReauth(member.getId(), SocialProvider.GOOGLE, Instant.now().plusSeconds(600)));
+                new WithdrawalReauth(member.getId(), SocialProvider.GOOGLE, Instant.now().plusSeconds(600), "nonce-1"));
+        String reauthUrl = "/oauth2/authorization/naver?withdrawal=nonce-1";
 
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_REAUTH_MISMATCH"));
+        reauthenticate(session, reauthUrl).andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_REAUTH_MISMATCH"));
 
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
         mockMvc.perform(get("/api/v1/users/me").session(session)).andExpect(status().isOk());
+    }
+
+    // ===== 탈퇴 의도는 탈퇴 전용 인가 요청에만 묶인다 =====
+
+    @Test
+    @DisplayName("탈퇴를 시작해 둔 세션이라도 일반 소셜 로그인 콜백은 로그인일 뿐 탈퇴하지 않는다 — 의도도 그대로 남는다")
+    void plainLoginDoesNotWithdraw() throws Exception {
+        MockHttpSession session = login();
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
+
+        // 탭을 닫아 콜백이 안 온 뒤, 다른 탭이나 외부 링크로 일반 로그인이 일어난 경우.
+        reauthenticate(session, "/oauth2/authorization/naver").andExpect(redirectedUrl(FRONT + "/"));
+
+        assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
+        verify(tokenRevoker, never()).revoke(any(), any());
+        assertThat(session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE)).isNotNull();
+
+        // 탈퇴 전용 주소로 확인하면 그때는 탈퇴된다.
+        reauthenticate(session, reauthUrl).andExpect(redirectedUrl(FRONT + "/withdrawn"));
+        assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.WITHDRAWN);
+    }
+
+    @Test
+    @DisplayName("일반 로그인의 실패 콜백(제공자 화면 취소)도 탈퇴 의도를 건드리지 않고 로그인 실패로 처리한다")
+    void plainLoginFailureLeavesIntent() throws Exception {
+        MockHttpSession session = login();
+        startWithdrawal(session).andExpect(status().isOk());
+
+        String state = startAuthorization(session, "/oauth2/authorization/naver");
+        mockMvc.perform(get("/login/oauth2/code/naver")
+                        .param("error", "access_denied")
+                        .param("state", state)
+                        .session(session))
+                .andExpect(redirectedUrl(FRONT + "/login?error=SOCIAL_LOGIN_FAILED"));
+
+        assertThat(session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("난수가 틀린 탈퇴 주소(만들어 낸 링크)는 탈퇴하지 않고 만료로 안내한다 — 진짜 의도는 남는다")
+    void forgedNonce() throws Exception {
+        MockHttpSession session = login();
+        startWithdrawal(session).andExpect(status().isOk());
+
+        reauthenticate(session, "/oauth2/authorization/naver?withdrawal=forged")
+                .andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
+
+        assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
+        verify(tokenRevoker, never()).revoke(any(), any());
+        assertThat(session.getAttribute(WithdrawalReauthStore.SESSION_ATTRIBUTE)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("탈퇴를 다시 시작하면 이전 주소는 더 쓸 수 없다")
+    void restartReplacesNonce() throws Exception {
+        MockHttpSession session = login();
+        String first = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
+        String second = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
+        assertThat(second).isNotEqualTo(first);
+
+        reauthenticate(session, first)
+                .andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
+        assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
+
+        reauthenticate(session, second).andExpect(redirectedUrl(FRONT + "/withdrawn"));
+    }
+
+    @Test
+    @DisplayName("탈퇴를 시작하지 않은 세션에 탈퇴 주소로 와도 탈퇴하지 않는다")
+    void nonceWithoutIntent() throws Exception {
+        MockHttpSession session = login();
+
+        reauthenticate(session, "/oauth2/authorization/naver?withdrawal=anything")
+                .andExpect(redirectedUrl(FRONT + "/account/withdraw?error=WITHDRAWAL_SESSION_EXPIRED"));
+        assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
     // ---- 헬퍼 ----
@@ -288,13 +374,19 @@ class WithdrawalFlowTest {
         return mockMvc.perform(post("/api/v1/users/me/withdrawal").session(session).with(csrf()));
     }
 
-    // 로그인된 세션 그대로 다시 인가를 받는다(탈퇴 본인 확인).
-    private ResultActions reauthenticate(MockHttpSession session) throws Exception {
-        return callback(session, startAuthorization(session));
+    private static String reauthUrl(ResultActions startResult) throws Exception {
+        String body = startResult.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        return JsonPath.read(body, "$.data.reauthUrl");
     }
 
-    private String startAuthorization(MockHttpSession session) throws Exception {
-        return state(mockMvc.perform(get("/oauth2/authorization/naver").session(session))
+    // 로그인된 세션 그대로 주어진 인가 시작 주소로 다시 인가를 받는다
+    // (탈퇴 본인 확인이면 시작 API 의 reauthUrl, 일반 로그인이면 /oauth2/authorization/naver).
+    private ResultActions reauthenticate(MockHttpSession session, String authorizationUrl) throws Exception {
+        return callback(session, startAuthorization(session, authorizationUrl));
+    }
+
+    private String startAuthorization(MockHttpSession session, String authorizationUrl) throws Exception {
+        return state(mockMvc.perform(get(authorizationUrl).session(session))
                 .andExpect(status().is3xxRedirection())
                 .andReturn());
     }

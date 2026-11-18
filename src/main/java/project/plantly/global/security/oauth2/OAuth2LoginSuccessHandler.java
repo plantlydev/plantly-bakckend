@@ -16,7 +16,8 @@ import java.util.Optional;
 // 세션 고정 방지(세션 ID 교체), CSRF 토큰 교체, 인증 정보의 세션 저장은 이 핸들러보다 먼저 필터가 끝낸다.
 // 로그인 전에 보던 화면(next)으로 돌려보내는 건 프론트가 한다(sessionStorage).
 //
-// 단, 세션에 탈퇴 의도가 있으면 이 콜백은 로그인이 아니라 탈퇴 본인 확인이다 → WithdrawalReauthHandler.
+// 단, 이 콜백이 탈퇴 전용 인가 요청(WithdrawalAuthorization)에서 왔으면 로그인이 아니라 탈퇴 본인 확인이다
+// → WithdrawalReauthHandler. 세션에 탈퇴 의도가 있다는 것만으로는 탈퇴로 처리하지 않는다.
 @Component
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
@@ -35,9 +36,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
-        Optional<WithdrawalReauth> reauth = withdrawalReauthStore.take(request);
-        if (reauth.isPresent()) {
-            withdrawalReauthHandler.onSuccess(request, response, authentication, reauth.get());
+        Optional<String> withdrawalNonce = WithdrawalAuthorization.callbackNonce(request);
+        if (withdrawalNonce.isPresent()) {
+            Optional<WithdrawalReauth> reauth = withdrawalReauthStore.take(request, withdrawalNonce.get());
+            withdrawalReauthHandler.onSuccess(request, response, authentication, reauth.orElse(null));
             return;
         }
         super.onAuthenticationSuccess(request, response, authentication);

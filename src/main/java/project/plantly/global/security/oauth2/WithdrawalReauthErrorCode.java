@@ -10,6 +10,7 @@ public enum WithdrawalReauthErrorCode {
     WITHDRAWAL_REAUTH_MISMATCH,
     // 본인 확인을 끝내지 못했다: 제공자 화면에서 취소, 통신 실패, 그 밖의 오류.
     WITHDRAWAL_REAUTH_FAILED,
-    // 탈퇴를 시작한 지 오래돼(WithdrawalReauthStore.TTL) 의도가 만료됐다. 탈퇴 화면에서 다시 시작한다.
+    // 탈퇴를 시작한 지 오래돼(WithdrawalReauthStore.TTL) 의도가 만료됐거나, 콜백의 탈퇴 난수가 세션 의도와 맞지 않는다
+    // (이미 쓴 주소, 다시 시작해 바뀐 주소, 만들어 낸 주소). 탈퇴 화면에서 다시 시작한다.
     WITHDRAWAL_SESSION_EXPIRED
 }

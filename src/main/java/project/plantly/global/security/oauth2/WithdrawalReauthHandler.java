@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -28,8 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// 탈퇴 본인 확인(재인가) 콜백 처리. 세션에 탈퇴 의도(WithdrawalReauthStore)가 있을 때 소셜 로그인 성공·실패 핸들러가
-// 이쪽으로 넘긴다. 콜백은 브라우저가 페이지째 이동해 오는 요청이라 결과는 전부 프론트 화면으로 리다이렉트한다.
+// 탈퇴 본인 확인(재인가) 콜백 처리. 콜백이 탈퇴 전용 인가 요청(WithdrawalAuthorization)에서 왔을 때 소셜 로그인
+// 성공·실패 핸들러가 이쪽으로 넘긴다. 세션 의도와 난수가 맞으면 reauth 가 있고, 없거나 안 맞으면 null 이다. 콜백은 브라우저가 페이지째 이동해 오는 요청이라 결과는 전부 프론트 화면으로 리다이렉트한다.
 //
 // 성공(같은 회원·같은 제공자로 확인):
 //   탈퇴(WithdrawalService.withdraw, 커밋) → 연동 해제(best effort) → 세션 무효화·쿠키 삭제 → {프론트}/withdrawn
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 // 탈퇴로 끝나지 않는 경우(error 는 WithdrawalReauthErrorCode 또는 WithdrawalErrorCode 상수명):
 //   - 다른 회원으로 확인됨: 로그인 필터가 이미 그 회원으로 세션을 바꿨다 → 로그아웃시키고 {프론트}/login?error=MISMATCH
 //   - 같은 회원·다른 제공자, 만료, 탈퇴 거절, 확인 실패: 원래 회원으로 로그인된 채 {프론트}/account/withdraw?error=…
+//   - 의도가 없거나 난수가 다름(이미 썼거나, 다시 시작해 바뀌었거나, 만들어 낸 주소): 만료와 같이 처리한다.
 @Slf4j
 @Component
 public class WithdrawalReauthHandler {
@@ -70,11 +72,15 @@ public class WithdrawalReauthHandler {
     }
 
     public void onSuccess(HttpServletRequest request, HttpServletResponse response,
-                          Authentication authentication, WithdrawalReauth reauth) throws IOException {
+                          Authentication authentication, @Nullable WithdrawalReauth reauth) throws IOException {
         OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
         String registrationId = token.getAuthorizedClientRegistrationId();
         Long userId = ((UserPrincipal) token.getPrincipal()).getUser().getId();
 
+        if (reauth == null) {
+            redirect(response, WITHDRAW_PAGE_PATH, WithdrawalReauthErrorCode.WITHDRAWAL_SESSION_EXPIRED.name());
+            return;
+        }
         if (!reauth.userId().equals(userId)) {
             // 다른 회원의 소셜 계정으로 확인했다. 세션은 이미 그 회원으로 바뀌었으므로 둘 다 로그인 상태로 두지 않는다.
             log.warn("탈퇴 본인 확인 불일치(다른 회원) intentUserId={} authenticatedUserId={}", reauth.userId(), userId);
@@ -119,7 +125,11 @@ public class WithdrawalReauthHandler {
     }
 
     public void onFailure(HttpServletRequest request, HttpServletResponse response,
-                          AuthenticationException exception, WithdrawalReauth reauth) throws IOException {
+                          AuthenticationException exception, @Nullable WithdrawalReauth reauth) throws IOException {
+        if (reauth == null) {
+            redirect(response, WITHDRAW_PAGE_PATH, WithdrawalReauthErrorCode.WITHDRAWAL_SESSION_EXPIRED.name());
+            return;
+        }
         // 로그인 필터는 실패해도 세션에 저장된 원래 회원의 인증을 지우지 않는다 → 로그인된 채 탈퇴 화면으로 돌아간다.
         WithdrawalReauthErrorCode code = switch (SocialLoginErrorCode.from(exception)) {
             // 확인한 소셜 계정이 이 회원의 연결이 아니다(가입 안 된 계정·다른 회원과 이메일이 겹치는 계정·막 탈퇴한 계정).

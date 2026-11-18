@@ -38,9 +38,11 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
         // 탈퇴 본인 확인 중의 실패는 로그인 실패가 아니다 — 가입 대기도 만들지 않고 탈퇴 화면으로 돌려보낸다.
-        var withdrawalReauth = withdrawalReauthStore.take(request);
-        if (withdrawalReauth.isPresent()) {
-            withdrawalReauthHandler.onFailure(request, response, exception, withdrawalReauth.get());
+        // 이 콜백이 탈퇴 전용 인가 요청에서 왔을 때만이다(WithdrawalAuthorization).
+        var withdrawalNonce = WithdrawalAuthorization.callbackNonce(request);
+        if (withdrawalNonce.isPresent()) {
+            var withdrawalReauth = withdrawalReauthStore.take(request, withdrawalNonce.get());
+            withdrawalReauthHandler.onFailure(request, response, exception, withdrawalReauth.orElse(null));
             return;
         }
 

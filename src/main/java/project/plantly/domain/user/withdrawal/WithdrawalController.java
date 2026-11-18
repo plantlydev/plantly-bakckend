@@ -10,13 +10,15 @@ import org.springframework.web.bind.annotation.RestController;
 import project.plantly.domain.auth.social.SocialProvider;
 import project.plantly.global.response.ApiResponse;
 import project.plantly.global.security.UserPrincipal;
+import project.plantly.global.security.oauth2.WithdrawalAuthorization;
 import project.plantly.global.security.oauth2.WithdrawalReauthStore;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Locale;
 
 // 회원 탈퇴 화면이 쓰는 API. 탈퇴 자체는 API 가 아니라 소셜 재인가 콜백에서 일어난다(WithdrawalReauthHandler).
 //  1) GET  /api/v1/users/me/withdrawal → 확인 화면에 보여 줄 것(함께 지워질 기업·초안 수, 본인 확인 제공자)
-//  2) POST /api/v1/users/me/withdrawal → 탈퇴 의도를 세션에 두고 재인가 주소를 돌려준다.
+//  2) POST /api/v1/users/me/withdrawal → 탈퇴 의도와 1회용 난수를 세션에 두고 탈퇴 전용 재인가 주소(?withdrawal=난수)를 돌려준다.
 //     프론트는 그 주소로 페이지째 이동한다 → 제공자 확인 → 콜백 → 탈퇴 → {프론트}/withdrawn
 @RestController
 @RequiredArgsConstructor
@@ -36,9 +38,12 @@ public class WithdrawalController {
                                                       HttpServletRequest request) {
         Long userId = principal.getUser().getId();
         SocialProvider provider = withdrawalService.reauthProvider(userId);
-        reauthStore.save(request, userId, provider);
+        String nonce = reauthStore.save(request, userId, provider);
 
-        String reauthUrl = "/oauth2/authorization/" + provider.name().toLowerCase(Locale.ROOT);
+        // 탈퇴 전용 인가 요청 주소. 난수가 있어야 이 재인가의 콜백만 탈퇴로 처리된다(WithdrawalAuthorization).
+        String reauthUrl = UriComponentsBuilder.fromPath("/oauth2/authorization/" + provider.name().toLowerCase(Locale.ROOT))
+                .queryParam(WithdrawalAuthorization.PARAM, nonce)
+                .toUriString();
         return ApiResponse.success("본인 확인을 진행해 주세요.", new WithdrawalStartResponse(reauthUrl));
     }
 
