@@ -23,6 +23,14 @@ public interface CompanyMemberRepository extends JpaRepository<CompanyMember, Lo
     @Query("select m.companyId from CompanyMember m where m.userId = :userId and m.role = :role")
     List<Long> findCompanyIdsByUserIdAndRole(@Param("userId") Long userId, @Param("role") MemberRole role);
 
+    // 탈퇴 미리보기: 함께 삭제될(아직 삭제되지 않은) 소유 회사 수.
+    @Query("""
+            select count(m) from CompanyMember m
+            where m.userId = :userId and m.role = :role
+              and exists (select c.id from Company c where c.id = m.companyId and c.deleted = false)
+            """)
+    long countLiveCompaniesByUserIdAndRole(@Param("userId") Long userId, @Param("role") MemberRole role);
+
     // 회원 탈퇴 정리(WithdrawalService). JPQL 벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다(리뷰 ⑥).
     @Modifying
     @Query("delete from CompanyMember x where x.userId = :userId")
