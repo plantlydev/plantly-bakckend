@@ -179,13 +179,15 @@ class WithdrawalFlowTest {
     }
 
     @Test
-    @DisplayName("연동 해제가 실패해도 탈퇴는 유지된다")
+    @DisplayName("연동 해제가 실패해도 탈퇴는 유지되고, 완료 화면에 직접 해제 안내를 띄우도록 unlinkFailed 를 넘긴다")
     void revokeFailureKeepsWithdrawal() throws Exception {
         given(tokenRevoker.revoke(any(), any())).willReturn(false);
         MockHttpSession session = login();
         startWithdrawal(session).andExpect(status().isOk());
 
-        reauthenticate(session).andExpect(redirectedUrl(FRONT + "/withdrawn"));
+        reauthenticate(session)
+                .andExpect(redirectedUrl(FRONT + "/withdrawn?unlinkFailed=NAVER"))
+                .andExpect(cookie().maxAge("JSESSIONID", 0));
 
         assertThat(userRepository.findById(member.getId()).orElseThrow().getUserStatus()).isEqualTo(UserStatus.WITHDRAWN);
     }

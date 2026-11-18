@@ -24,12 +24,17 @@ import project.plantly.global.security.oauth2.WithdrawalReauthStore.WithdrawalRe
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 // 탈퇴 본인 확인(재인가) 콜백 처리. 세션에 탈퇴 의도(WithdrawalReauthStore)가 있을 때 소셜 로그인 성공·실패 핸들러가
 // 이쪽으로 넘긴다. 콜백은 브라우저가 페이지째 이동해 오는 요청이라 결과는 전부 프론트 화면으로 리다이렉트한다.
 //
 // 성공(같은 회원·같은 제공자로 확인):
 //   탈퇴(WithdrawalService.withdraw, 커밋) → 연동 해제(best effort) → 세션 무효화·쿠키 삭제 → {프론트}/withdrawn
+//   해제하지 못한 제공자가 있으면 {프론트}/withdrawn?unlinkFailed=NAVER(쉼표 구분) — 완료 화면이 제공자 설정에서
+//   직접 해제하는 방법을 안내한다. 재시도는 하지 않는다: 토큰은 세션에만 있고 곧 만료되며, 다시 쓰려고 보관하지 않는다.
 //   연동 해제가 커밋 뒤인 이유: 외부 호출 실패가 탈퇴를 되돌리면 안 되고, 외부 호출을 DB 트랜잭션 안에 두지 않는다.
 //   다른 기기의 세션은 세션 재검증(SessionUserRevalidationFilter)이 다음 요청에서 끊는다.
 //
@@ -43,6 +48,7 @@ public class WithdrawalReauthHandler {
     static final String WITHDRAWN_PATH = "/withdrawn";
     static final String WITHDRAW_PAGE_PATH = "/account/withdraw";
     static final String LOGIN_PATH = "/login";
+    static final String UNLINK_FAILED_PARAM = "unlinkFailed";
 
     private final String frontendBaseUrl;
     private final WithdrawalService withdrawalService;
@@ -102,9 +108,14 @@ public class WithdrawalReauthHandler {
             return;
         }
 
-        revoke(userId, reauth.provider(), client, result);
+        List<SocialProvider> unlinkFailed = revoke(userId, reauth.provider(), client, result);
         sessionTerminator.logout(request, response, authentication);
-        response.sendRedirect(frontendUrl(WITHDRAWN_PATH).toUriString());
+        UriComponentsBuilder withdrawn = frontendUrl(WITHDRAWN_PATH);
+        if (!unlinkFailed.isEmpty()) {
+            withdrawn.queryParam(UNLINK_FAILED_PARAM,
+                    unlinkFailed.stream().map(SocialProvider::name).collect(Collectors.joining(",")));
+        }
+        response.sendRedirect(withdrawn.toUriString());
     }
 
     public void onFailure(HttpServletRequest request, HttpServletResponse response,
@@ -122,15 +133,23 @@ public class WithdrawalReauthHandler {
     }
 
     // 재인가한 제공자만 해제할 수 있다. 다른 제공자 연결은 토큰이 없어 로그만 남긴다(계정 연결 기능이 없어 정상 흐름엔 없다).
-    private void revoke(Long userId, SocialProvider provider, OAuth2AuthorizedClient client, WithdrawalResult result) {
+    // 해제하지 못한 제공자를 돌려준다(재인가 제공자가 앞).
+    private List<SocialProvider> revoke(Long userId, SocialProvider provider, OAuth2AuthorizedClient client,
+                                        WithdrawalResult result) {
+        List<SocialProvider> failed = new ArrayList<>();
         if (client == null) {
             log.warn("연동 해제 못 함 — 재인가 토큰이 세션에 없다 userId={} provider={}", userId, provider);
-        } else {
-            tokenRevoker.revoke(provider, client);
+            failed.add(provider);
+        } else if (!tokenRevoker.revoke(provider, client)) {
+            failed.add(provider);
         }
         result.providers().stream()
                 .filter(other -> other != provider)
-                .forEach(other -> log.warn("연동 해제 못 함 — 재인가하지 않은 제공자 userId={} provider={}", userId, other));
+                .forEach(other -> {
+                    log.warn("연동 해제 못 함 — 재인가하지 않은 제공자 userId={} provider={}", userId, other);
+                    failed.add(other);
+                });
+        return failed;
     }
 
     private void redirect(HttpServletResponse response, String path, String error) throws IOException {
