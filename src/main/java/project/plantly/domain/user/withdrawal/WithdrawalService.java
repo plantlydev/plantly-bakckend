@@ -30,6 +30,8 @@ import java.util.List;
 //
 // 정리 규칙(2026-11-16 확정)
 //  - 소유 회사: 함께 삭제(soft delete). 보관기한(30일) 뒤 완전 파기는 별도 작업(보류). 원래 회원에게 돌려주는 복구는 없다.
+//    회사에 남은 개인정보도 정리한다(2026-11-17 확정): 대표자명은 '탈퇴회원'으로 익명화(필수 컬럼), 연락처는 삭제,
+//    국세청 인증 표시는 회수. 관리자 복구는 그대로 열어 둔다.
 //  - 지우는 것: 소유 연결(CompanyMember), 임시저장 초안, 좋아요·즐겨찾기, 사업자 인증·인증 시도 기록, 소셜 연결.
 //  - 남기는 것: 약관 동의 기록(동의 증빙), 업로드 파일(완전 파기 작업에서 함께 정리), 회원 행(익명화해서 — 회사의
 //    registeredBy 등 이력 참조가 깨지지 않게).
@@ -71,11 +73,11 @@ public class WithdrawalService {
             throw new BusinessException(WithdrawalErrorCode.WITHDRAWAL_NOT_ALLOWED);
         }
 
-        // 1) 소유 회사 삭제 — 소유자 삭제 경로를 그대로 탄다(회사 행 락 → soft delete → 검색 도큐먼트 갱신).
-        //    이미 삭제된 회사는 그 경로가 멱등하게 넘긴다. 소유 연결을 지우기 전에 해야 소유 검증을 통과한다.
+        // 1) 소유 회사 삭제 + 회사에 남은 개인정보 정리(회사 행 락 → 대표자명 익명화·국세청 인증 회수·soft delete →
+        //    연락처 삭제 → 검색 도큐먼트 갱신). 이미 삭제된 회사도 같은 처리를 받는다. 소유 연결을 지우기 전에 해야 소유 검증을 통과한다.
         List<Long> ownedCompanyIds = companyMemberRepository.findCompanyIdsByUserIdAndRole(userId, MemberRole.OWNER);
         for (Long companyId : ownedCompanyIds) {
-            companyUpdateService.deleteByUser(companyId, userId);
+            companyUpdateService.deleteForOwnerWithdrawal(companyId, userId, User.WITHDRAWN_NAME);
         }
 
         // 2) 회원에 딸린 데이터 정리(벌크 DELETE — 건별 삭제의 0건 낙관적 락 실패를 피한다, 리뷰 ⑥)

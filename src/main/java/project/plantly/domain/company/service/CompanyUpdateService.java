@@ -103,6 +103,22 @@ public class CompanyUpdateService {
         searchDocumentWriter.write(companyId);
     }
 
+    // 소유자 회원 탈퇴(WithdrawalService 전용). 소유자 삭제와 같은 회사 행 락·소유 검증 위에서, 회사에 남은 개인정보를 지운다.
+    //  - 대표자명은 익명값으로 바꾸고 국세청 인증 표시를 내린 뒤 삭제한다(Company#anonymizeForOwnerWithdrawal).
+    //  - 연락처는 행을 삭제한다.
+    //  - 이미 삭제된 회사도 같은 처리를 받는다. 소유자가 먼저 지워 둔 회사에도 대표자명·연락처가 남아 있고, 검색 도큐먼트도
+    //    (조회 때 걸러질 뿐) 옛 대표자명을 들고 있어서 재색인까지 해야 한다.
+    // 관리자 복구는 막지 않는다 — 되살리면 익명 대표자명·연락처 없음·미인증 회사로 돌아온다.
+    public void deleteForOwnerWithdrawal(Long companyId, Long userId, String anonymizedCeoName) {
+        Company company = loadCompany(companyId);
+        if (!isMember(companyId, userId)) {
+            throw new BusinessException(CompanyErrorCode.COMPANY_NOT_FOUND);
+        }
+        company.anonymizeForOwnerWithdrawal(anonymizedCeoName);
+        childWriter.deleteContacts(company);
+        searchDocumentWriter.write(companyId);
+    }
+
     public void deleteByAdmin(Long companyId) {
         mutateAsAdmin(companyId, Company::delete);
     }

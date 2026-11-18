@@ -236,6 +236,15 @@ public class Company {
         this.businessVerifiedAt = null;
     }
 
+    // 소유자 회원 탈퇴. 대표자명(개인정보)을 익명값으로 바꾸고 — 필수 컬럼이라 비울 수 없다 — 국세청 인증 표시를 내린 뒤
+    // 삭제한다. 익명화된 대표자명에 '국세청 확인' 배지가 남으면 안 되고, 근거인 인증 레코드도 탈퇴가 함께 지운다.
+    // 사업자번호는 남긴다(revokeBusinessVerification 과 같은 이유). 이미 삭제된 회사여도 같은 결과로 수렴한다.
+    public void anonymizeForOwnerWithdrawal(String anonymizedCeoName) {
+        this.ceoName = anonymizedCeoName;
+        revokeBusinessVerification();
+        delete();
+    }
+
     // 관리자 인증 처리 / 해제
     public void verify() {
         this.verified = true;
