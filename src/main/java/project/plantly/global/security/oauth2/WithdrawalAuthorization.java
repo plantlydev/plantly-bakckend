@@ -84,9 +84,13 @@ public final class WithdrawalAuthorization {
 
         // 탈퇴 요청에만 붙는 제공자별 재인증 파라미터. 일반 로그인 요청에는 붙지 않는다.
         //  - 네이버: auth_type=reauthenticate — 로그인 상태여도 비밀번호를 다시 입력받는다.
+        //  - 구글: prompt=select_account — 계정 선택 화면을 반드시 띄워 화면 없는 통과만 막는다(최소 조치).
+        //    구글 OAuth 에는 비밀번호 재입력을 강제할 수단이 없다(max_age 는 OIDC 이고 무시될 수 있음). 이 공백은
+        //    인정하고, 서비스 자체 본인 확인(이메일 OTP 등)을 후속으로 둔다.
         private static Map<String, Object> reauthenticationParameters(String registrationId) {
             return switch (registrationId == null ? "" : registrationId) {
                 case "naver" -> Map.of("auth_type", "reauthenticate");
+                case "google" -> Map.of("prompt", "select_account");
                 default -> Map.of();
             };
         }

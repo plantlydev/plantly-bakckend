@@ -33,6 +33,7 @@ import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.security.oauth2.PendingSocialSignupStore;
 import project.plantly.global.security.oauth2.SocialTokenRevoker;
+import project.plantly.global.security.oauth2.WithdrawalAuthorization;
 import project.plantly.global.security.oauth2.WithdrawalReauthStore;
 import project.plantly.global.security.oauth2.WithdrawalReauthStore.WithdrawalReauth;
 
@@ -148,7 +149,23 @@ class WithdrawalFlowTest {
                 .andReturn().getResponse().getRedirectedUrl();
 
         assertThat(queryParam(withdrawalProviderUrl, "auth_type")).isEqualTo("reauthenticate");
+        assertThat(queryParam(withdrawalProviderUrl, "prompt")).isNull();
         assertThat(queryParam(loginProviderUrl, "auth_type")).isNull();
+    }
+
+    @Test
+    @DisplayName("구글 최소 조치: 탈퇴 인가 요청에만 prompt=select_account 를 붙이고 일반 로그인 요청에는 붙이지 않는다")
+    void googleSelectAccountOnlyForWithdrawal() throws Exception {
+        // 파라미터는 Resolver 가 withdrawal 표시만 보고 붙인다 — 의도가 맞는지는 콜백에서 따로 본다(forgedNonce 등).
+        String withdrawalProviderUrl = mockMvc.perform(get("/oauth2/authorization/google")
+                        .param(WithdrawalAuthorization.PARAM, "nonce-1"))
+                .andReturn().getResponse().getRedirectedUrl();
+        String loginProviderUrl = mockMvc.perform(get("/oauth2/authorization/google"))
+                .andReturn().getResponse().getRedirectedUrl();
+
+        assertThat(queryParam(withdrawalProviderUrl, "prompt")).isEqualTo("select_account");
+        assertThat(queryParam(withdrawalProviderUrl, "auth_type")).isNull();
+        assertThat(queryParam(loginProviderUrl, "prompt")).isNull();
     }
 
     @Test
