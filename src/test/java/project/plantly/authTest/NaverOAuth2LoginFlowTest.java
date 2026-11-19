@@ -43,6 +43,8 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -201,6 +203,8 @@ class NaverOAuth2LoginFlowTest {
         callback(authorization).andExpect(redirectedUrl(FRONT + "/login?error=ACCOUNT_SUSPENDED"));
 
         assertNotLoggedIn(authorization.session());
+        // 회원과 연결이 실제로 있는 계정이라 제공자 연결은 끊지 않는다.
+        verify(tokenRevoker, never()).revoke(any(), any());
     }
 
     @Test
@@ -214,6 +218,8 @@ class NaverOAuth2LoginFlowTest {
         assertNotLoggedIn(authorization.session());
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(socialAccountRepository.count()).isZero();
+        // 회원이 생기지 않으니 동의 화면에서 생긴 제공자 연결을 방금 받은 토큰으로 끊는다.
+        verify(tokenRevoker).revoke(eq(SocialProvider.NAVER), any());
     }
 
     @Test
@@ -226,6 +232,10 @@ class NaverOAuth2LoginFlowTest {
 
         assertNotLoggedIn(authorization.session());
         assertThat(userRepository.count()).isZero();
+        // 탈퇴로 끊은 제공자 연결이 재가입 시도만으로 되살아나지 않게 방금 받은 토큰으로 바로 끊는다.
+        verify(tokenRevoker).revoke(eq(SocialProvider.NAVER),
+                argThat(client -> NAVER_ID.equals(client.getPrincipalName())
+                        && client.getAccessToken().getTokenValue() != null));
     }
 
     @Test
@@ -236,6 +246,7 @@ class NaverOAuth2LoginFlowTest {
 
         assertNotLoggedIn(authorization.session());
         assertThat(userRepository.count()).isZero();
+        verify(tokenRevoker, never()).revoke(any(), any());
     }
 
     @Test

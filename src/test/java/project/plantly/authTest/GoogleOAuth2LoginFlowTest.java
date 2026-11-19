@@ -30,6 +30,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import project.plantly.DatabaseCleanup;
 import project.plantly.domain.auth.social.SocialAccount;
 import project.plantly.domain.auth.social.SocialProvider;
+import project.plantly.domain.auth.social.rejoin.RejoinRestriction;
 import project.plantly.domain.auth.social.repository.SocialAccountRepository;
 import project.plantly.domain.user.User;
 import project.plantly.domain.user.repository.UserRepository;
@@ -45,6 +46,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -80,6 +82,8 @@ class GoogleOAuth2LoginFlowTest {
     private SocialAccountRepository socialAccountRepository;
     @Autowired
     private DatabaseCleanup databaseCleanup;
+    @Autowired
+    private RejoinRestriction rejoinRestriction;
 
     @MockitoBean
     private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> tokenResponseClient;
@@ -184,6 +188,20 @@ class GoogleOAuth2LoginFlowTest {
         assertNotLoggedIn(session);
         assertThat(socialAccountRepository.findByProviderAndProviderUserId(SocialProvider.GOOGLE, GOOGLE_SUB)).isEmpty();
         assertThat(userRepository.count()).isEqualTo(1);
+        verify(tokenRevoker).revoke(eq(SocialProvider.GOOGLE), any());
+    }
+
+    @Test
+    @DisplayName("탈퇴 직후 같은 구글 계정으로 오면 REJOIN_RESTRICTED — 방금 받은 토큰으로 구글 연결을 다시 끊는다")
+    void recentlyWithdrawn_rejectedAndUnlinked() throws Exception {
+        rejoinRestriction.record(SocialProvider.GOOGLE, GOOGLE_SUB);
+
+        MockHttpSession session = new MockHttpSession();
+        loginWithGoogle(session).andExpect(redirectedUrl(FRONT + "/login?error=REJOIN_RESTRICTED"));
+
+        assertNotLoggedIn(session);
+        assertThat(userRepository.count()).isZero();
+        verify(tokenRevoker).revoke(eq(SocialProvider.GOOGLE), any());
     }
 
     @Test
