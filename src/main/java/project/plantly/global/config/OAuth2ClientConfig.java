@@ -10,9 +10,15 @@ import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserServ
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.util.StringUtils;
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
+import org.springframework.web.client.RestClient;
+import project.plantly.global.security.oauth2.SocialTokenRevoker;
 
-// 소셜 로그인이 제공자와 통신하는 부품. 빈으로 꺼내 둔 이유는 테스트가 이 두 호출만 가짜로 바꿔
-// 실제 필터 흐름(인가 요청 → 콜백 → 판정 → 세션 저장)을 그대로 돌리기 위해서다.
+import java.time.Duration;
+
+// 소셜 로그인이 제공자와 통신하는 부품. 빈으로 꺼내 둔 이유는 테스트가 이 호출들(토큰 교환·사용자 정보·탈퇴 연동 해제)만
+// 가짜로 바꿔 실제 필터 흐름(인가 요청 → 콜백 → 판정 → 세션 저장, 탈퇴 재인가)을 그대로 돌리기 위해서다.
 @Configuration
 public class OAuth2ClientConfig {
 
@@ -51,9 +57,21 @@ public class OAuth2ClientConfig {
 
     // 로그인 때 받은 액세스 토큰 보관소. 부트 기본값(InMemoryOAuth2AuthorizedClientService 기반)은
     // 로그인할 때마다 토큰을 메모리에 쌓고 지우지 않는다. 세션에 두면 세션과 함께 사라진다.
-    // 지금은 로그인 뒤 토큰을 쓰는 곳이 없다. 회원탈퇴 때 네이버 연동 해제에 쓸지는 탈퇴 작업에서 정한다.
+    // 토큰을 쓰는 곳은 회원 탈퇴의 연동 해제뿐이고, 그것도 탈퇴 직전 재인가로 막 받은 토큰을 쓴다(WithdrawalReauthHandler).
     @Bean
     public OAuth2AuthorizedClientRepository authorizedClientRepository() {
         return new HttpSessionOAuth2AuthorizedClientRepository();
+    }
+
+    // 회원 탈퇴 때 제공자 연동 해제 호출. 탈퇴 요청(브라우저 콜백) 안에서 동기로 부르므로 짧은 타임아웃을 둔다 —
+    // 제공자가 느려도 사용자가 오래 기다리지 않고, 실패는 로그만 남긴다(SocialTokenRevoker).
+    @Bean
+    public SocialTokenRevoker socialTokenRevoker() {
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(Duration.ofSeconds(3))
+                .withReadTimeout(Duration.ofSeconds(5));
+        return new SocialTokenRevoker(RestClient.builder()
+                .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
+                .build());
     }
 }

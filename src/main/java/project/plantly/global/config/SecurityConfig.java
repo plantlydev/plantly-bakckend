@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
 import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
@@ -39,6 +40,7 @@ import project.plantly.global.security.handler.RestLogoutSuccessHandler;
 import project.plantly.global.security.oauth2.OAuth2LoginFailureHandler;
 import project.plantly.global.security.oauth2.OAuth2LoginSuccessHandler;
 import project.plantly.global.security.oauth2.PlantlyOAuth2UserService;
+import project.plantly.global.security.oauth2.WithdrawalAuthorization;
 
 import java.util.List;
 
@@ -59,6 +61,7 @@ public class SecurityConfig {
     private final OAuth2LoginFailureHandler oauth2LoginFailureHandler;
     private final OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> authorizationCodeTokenResponseClient;
     private final OAuth2AuthorizedClientRepository authorizedClientRepository;
+    private final ClientRegistrationRepository clientRegistrationRepository;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -158,6 +161,10 @@ public class SecurityConfig {
                         // (미인증 API 의 401 JSON 은 아래 exceptionHandling 의 진입점이 그대로 맡는다)
                         .loginPage(frontendBaseUrl + "/login")
                         .authorizedClientRepository(authorizedClientRepository)
+                        // 탈퇴 본인 확인을 일반 로그인과 구분하는 전용 인가 요청(?withdrawal=난수 → state 에 묶음).
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestResolver(new WithdrawalAuthorization.Resolver(clientRegistrationRepository))
+                                .authorizationRequestRepository(new WithdrawalAuthorization.Repository()))
                         .tokenEndpoint(token -> token.accessTokenResponseClient(authorizationCodeTokenResponseClient))
                         .userInfoEndpoint(userInfo -> userInfo.userService(oauth2UserService))
                         .successHandler(oauth2LoginSuccessHandler)

@@ -35,6 +35,7 @@ import project.plantly.domain.user.consent.repository.UserConsentRepository;
 import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.global.security.oauth2.PendingSocialSignupStore;
 import project.plantly.global.security.oauth2.PendingSocialSignupStore.PendingSocialSignup;
+import project.plantly.global.security.oauth2.SocialTokenRevoker;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -84,6 +85,10 @@ class NaverSocialSignupFlowTest {
     private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> tokenResponseClient;
     @MockitoBean
     private DefaultOAuth2UserService userInfoClient;
+
+    // 연동 해제(탈퇴) 호출. 이 테스트는 쓰지 않지만, 소셜 흐름 테스트끼리 MockitoBean 구성을 맞춰 컨텍스트를 공유한다.
+    @MockitoBean
+    private SocialTokenRevoker tokenRevoker;
 
     @BeforeEach
     void stubNaver() {

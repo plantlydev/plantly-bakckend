@@ -41,6 +41,7 @@ import project.plantly.domain.user.enums.UserRole;
 import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.domain.user.repository.UserRepository;
 import project.plantly.domain.user.withdrawal.WithdrawalErrorCode;
+import project.plantly.domain.user.withdrawal.WithdrawalPreview;
 import project.plantly.domain.user.withdrawal.WithdrawalResult;
 import project.plantly.domain.user.withdrawal.WithdrawalService;
 import project.plantly.global.exception.BusinessException;
@@ -197,6 +198,44 @@ class WithdrawalServiceTest extends PostgresContainerTest {
 
         // 같은 소셜 계정은 재가입 제한 기간에 들어간다.
         assertThat(rejoinRestriction.isRestricted(SocialProvider.NAVER, naverId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("미리보기: 삭제되지 않은 소유 회사·초안 수와 본인 확인 제공자 — 아무것도 바꾸지 않는다")
+    void preview() {
+        saveCompany(memberId, randomBusinessNumber());
+        Long deleted = saveCompany(memberId, randomBusinessNumber());
+        companyRepository.findById(deleted).ifPresent(c -> {
+            c.delete();
+            companyRepository.save(c);
+        });
+        Long otherId = saveUser("other-" + UUID.randomUUID() + "@plantly.test", UserRole.MEMBER, UserStatus.ACTIVE);
+        saveCompany(otherId, randomBusinessNumber());
+        draftRepository.save(CompanyDraft.create(memberId, randomBusinessNumber(), "{}"));
+        draftRepository.save(CompanyDraft.create(memberId, randomBusinessNumber(), "{}"));
+
+        WithdrawalPreview preview = withdrawalService.preview(memberId);
+
+        assertThat(preview.ownedCompanyCount()).isEqualTo(1);   // 이미 삭제된 회사·남의 회사는 세지 않는다
+        assertThat(preview.draftCount()).isEqualTo(2);
+        assertThat(preview.provider()).isEqualTo(SocialProvider.NAVER);
+        assertUntouched();
+    }
+
+    @Test
+    @DisplayName("탈퇴 시작: 관리자·비ACTIVE 는 탈퇴와 같은 규칙으로 거절, 소셜 연결이 없으면 SOCIAL_ACCOUNT_REQUIRED")
+    void reauthProviderRejections() {
+        assertThat(withdrawalService.reauthProvider(memberId)).isEqualTo(SocialProvider.NAVER);
+
+        jdbcTemplate.update("update users set user_role = 'ADMIN' where id = ?", memberId);
+        assertError(() -> withdrawalService.reauthProvider(memberId), WithdrawalErrorCode.ADMIN_WITHDRAWAL_NOT_ALLOWED);
+        assertError(() -> withdrawalService.preview(memberId), WithdrawalErrorCode.ADMIN_WITHDRAWAL_NOT_ALLOWED);
+
+        jdbcTemplate.update("update users set user_role = 'MEMBER', user_status = 'SUSPENDED' where id = ?", memberId);
+        assertError(() -> withdrawalService.reauthProvider(memberId), WithdrawalErrorCode.WITHDRAWAL_NOT_ALLOWED);
+
+        Long localOnly = saveUser("local-" + UUID.randomUUID() + "@plantly.test", UserRole.MEMBER, UserStatus.ACTIVE);
+        assertError(() -> withdrawalService.reauthProvider(localOnly), WithdrawalErrorCode.SOCIAL_ACCOUNT_REQUIRED);
     }
 
     @Test

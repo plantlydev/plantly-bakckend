@@ -21,16 +21,31 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 
     private final String frontendBaseUrl;
     private final PendingSocialSignupStore pendingSignupStore;
+    private final WithdrawalReauthStore withdrawalReauthStore;
+    private final WithdrawalReauthHandler withdrawalReauthHandler;
 
     public OAuth2LoginFailureHandler(@Value("${app.frontend.base-url}") String frontendBaseUrl,
-                                     PendingSocialSignupStore pendingSignupStore) {
+                                     PendingSocialSignupStore pendingSignupStore,
+                                     WithdrawalReauthStore withdrawalReauthStore,
+                                     WithdrawalReauthHandler withdrawalReauthHandler) {
         this.frontendBaseUrl = frontendBaseUrl;
         this.pendingSignupStore = pendingSignupStore;
+        this.withdrawalReauthStore = withdrawalReauthStore;
+        this.withdrawalReauthHandler = withdrawalReauthHandler;
     }
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
+        // 탈퇴 본인 확인 중의 실패는 로그인 실패가 아니다 — 가입 대기도 만들지 않고 탈퇴 화면으로 돌려보낸다.
+        // 이 콜백이 탈퇴 전용 인가 요청에서 왔을 때만이다(WithdrawalAuthorization).
+        var withdrawalNonce = WithdrawalAuthorization.callbackNonce(request);
+        if (withdrawalNonce.isPresent()) {
+            var withdrawalReauth = withdrawalReauthStore.take(request, withdrawalNonce.get());
+            withdrawalReauthHandler.onFailure(request, response, exception, withdrawalReauth.orElse(null));
+            return;
+        }
+
         if (exception instanceof SocialSignupRequiredException signupRequired) {
             pendingSignupStore.save(request, signupRequired.getProfile());
             response.sendRedirect(frontendUrl("/signup/social").toUriString());
