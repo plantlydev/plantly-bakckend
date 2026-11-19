@@ -9,8 +9,10 @@ import org.springframework.security.oauth2.client.web.HttpSessionOAuth2Authoriza
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.util.StringUtils;
 
+import java.util.Map;
 import java.util.Optional;
 
 // 탈퇴 전용 인가 요청. 탈퇴 의도를 세션이 아니라 '그 인가 요청(OAuth2 state)'에 묶는다.
@@ -25,6 +27,8 @@ import java.util.Optional;
 //     인가 요청은 state 로 세션에 저장되므로 이 표시는 이 요청의 콜백에만 따라온다.
 //  3) 콜백(Repository): 필터가 state 로 인가 요청을 꺼낼 때 그 요청을 request attribute 에 남긴다 — 핸들러는
 //     인증 결과만 받으므로 "이 콜백이 어떤 인가 요청에서 왔는지"를 따로 넘겨야 한다.
+//     같은 자리에서 제공자에게 '로그인 상태여도 다시 확인하라'는 파라미터를 붙인다(reauthenticationParameters) —
+//     재인가만으로는 제공자 세션이 살아 있으면 화면 없이 통과하므로 본인 확인이 되지 않는다.
 //  4) 성공·실패 핸들러: 이 콜백의 인가 요청에 난수가 있을 때만 탈퇴로 처리하고, 세션 의도와 난수가 맞아야 의도를 꺼낸다.
 // 난수를 모르는 외부 링크는 탈퇴 표시가 붙은 요청을 만들어도 의도와 맞지 않아 탈퇴로 이어지지 않는다.
 public final class WithdrawalAuthorization {
@@ -71,9 +75,20 @@ public final class WithdrawalAuthorization {
             if (authorizationRequest == null || !StringUtils.hasText(nonce)) {
                 return authorizationRequest;
             }
+            String registrationId = authorizationRequest.getAttribute(OAuth2ParameterNames.REGISTRATION_ID);
             return OAuth2AuthorizationRequest.from(authorizationRequest)
                     .attributes(attributes -> attributes.put(ATTRIBUTE, nonce))
+                    .additionalParameters(parameters -> parameters.putAll(reauthenticationParameters(registrationId)))
                     .build();
+        }
+
+        // 탈퇴 요청에만 붙는 제공자별 재인증 파라미터. 일반 로그인 요청에는 붙지 않는다.
+        //  - 네이버: auth_type=reauthenticate — 로그인 상태여도 비밀번호를 다시 입력받는다.
+        private static Map<String, Object> reauthenticationParameters(String registrationId) {
+            return switch (registrationId == null ? "" : registrationId) {
+                case "naver" -> Map.of("auth_type", "reauthenticate");
+                default -> Map.of();
+            };
         }
     }
 

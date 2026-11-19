@@ -137,6 +137,21 @@ class WithdrawalFlowTest {
     }
 
     @Test
+    @DisplayName("네이버 재인증: 탈퇴 인가 요청에만 auth_type=reauthenticate 를 붙이고 일반 로그인 요청에는 붙이지 않는다")
+    void naverReauthenticateOnlyForWithdrawal() throws Exception {
+        MockHttpSession session = login();
+        String reauthUrl = reauthUrl(startWithdrawal(session).andExpect(status().isOk()));
+
+        String withdrawalProviderUrl = mockMvc.perform(get(reauthUrl).session(session))
+                .andReturn().getResponse().getRedirectedUrl();
+        String loginProviderUrl = mockMvc.perform(get("/oauth2/authorization/naver"))
+                .andReturn().getResponse().getRedirectedUrl();
+
+        assertThat(queryParam(withdrawalProviderUrl, "auth_type")).isEqualTo("reauthenticate");
+        assertThat(queryParam(loginProviderUrl, "auth_type")).isNull();
+    }
+
+    @Test
     @DisplayName("시작: 관리자는 403 ADMIN_WITHDRAWAL_NOT_ALLOWED, 의도를 두지 않는다")
     void adminCannotStart() throws Exception {
         User admin = userRepository.save(User.builder()
@@ -399,9 +414,12 @@ class WithdrawalFlowTest {
     }
 
     private static String state(MvcResult authorizationStart) {
-        String value = UriComponentsBuilder.fromUriString(authorizationStart.getResponse().getRedirectedUrl())
-                .build().getQueryParams().getFirst("state");
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        return queryParam(authorizationStart.getResponse().getRedirectedUrl(), "state");
+    }
+
+    private static String queryParam(String url, String name) {
+        String value = UriComponentsBuilder.fromUriString(url).build().getQueryParams().getFirst(name);
+        return value == null ? null : URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private static DefaultOAuth2User naverUser(String id, String email) {
