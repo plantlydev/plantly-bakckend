@@ -19,7 +19,8 @@ public record CompanyDetailResponse(
     public static CompanyDetailResponse from(CompanyAggregate aggregate) {
         return new CompanyDetailResponse(
                 // 소유자/관리자 뷰는 관리 목적이라 개인화(좋아요/즐겨찾기 상태)를 담지 않는다.
-                CompanyPublicResponse.from(aggregate, false, false),
+                // 소유자·관리자는 로그인한 뷰어라 담당자 연락처를 그대로 싣는다(수정 화면도 이 값을 쓴다).
+                CompanyPublicResponse.from(aggregate, false, false, true),
                 ManagementMeta.from(aggregate));
     }
 

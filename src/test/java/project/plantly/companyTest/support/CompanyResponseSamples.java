@@ -28,8 +28,17 @@ import java.util.List;
 // 모든 필드를 채운(부속 포함) 표본이라 REST Docs 가 응답 트리 전체를 문서화할 수 있다.
 public class CompanyResponseSamples {
 
-    // 모든 필드가 채워진 공개 프로필 표본.
+    // 모든 필드가 채워진 공개 프로필 표본(로그인 뷰어 기준 — 담당자 연락처 포함).
     public static CompanyPublicResponse fullPublic() {
+        return publicSample(new ContactResponse("이담당", "영업팀장", "01022223333", "rep@plantly.test"), false);
+    }
+
+    // 익명 뷰어가 받는 공개 프로필 표본: 담당자가 있지만 연락처를 비우고 contactLoginRequired=true.
+    public static CompanyPublicResponse anonymousPublic() {
+        return publicSample(null, true);
+    }
+
+    private static CompanyPublicResponse publicSample(ContactResponse contact, boolean contactLoginRequired) {
         return new CompanyPublicResponse(
                 1L, "플랜틀리테크", "김대표", LocalDate.of(2018, 3, 2),
                 "서울 강남구 테헤란로 1", "서울 강남구 역삼동 736-1", "10층",   // 우편번호는 공개 응답에서 제외
@@ -40,7 +49,8 @@ public class CompanyResponseSamples {
                 PricingType.CONSULTATION, "#2E7D32",
                 true, true, true, false,   // verified(에디터 선정), businessVerified(국세청 확인), featured, spotlight
                 true, false,   // likedByMe, favoritedByMe
-                new ContactResponse("이담당", "영업팀장", "01022223333", "rep@plantly.test"),
+                contact,
+                contactLoginRequired,
                 List.of(new GalleryImageResponse("https://cdn.plantly.test/gallery/1.png", ImageType.DETAIL, 0)),
                 new ProjectReferenceResponse("스마트팩토리 구축", "불량률 30% 감소", "A제조", "2022-2023",
                         "https://cdn.plantly.test/ref/cover.png"),

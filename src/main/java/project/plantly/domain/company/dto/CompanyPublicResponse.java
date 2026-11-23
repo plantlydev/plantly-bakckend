@@ -26,8 +26,10 @@ import java.util.List;
 //                → 이들은 소유자/관리자 전용인 CompanyDetailResponse 의 meta 로만 노출한다.
 //                postalCode(우편번호)도 제외한다 — 화면에 쓰이지 않고, 위치는 도로명/지번 주소로 이미 충분하다.
 //
-// 부속(연락처/이미지/레퍼런스/소재·장비·태그/링크 마스터)은 민감 정보가 아니므로 공개 뷰에도 그대로 포함하며,
+// 부속(이미지/레퍼런스/소재·장비·태그/링크 마스터)은 민감 정보가 아니므로 공개 뷰에도 그대로 포함하며,
 // 소유자/관리자 뷰는 이 응답을 'profile' 로 통째로 재사용한다.
+// 단, 담당자 연락처(representativeContact)는 예외다 — 담당자 개인의 이름·전화·이메일이라 로그인한 뷰어에게만 싣는다.
+// 대표자명(ceoName)은 회사의 공개 정보로 보고 누구에게나 싣는다.
 public record CompanyPublicResponse(
         Long id,
         String companyName,
@@ -65,7 +67,11 @@ public record CompanyPublicResponse(
 
         // ===== 부속 =====
         // 연락처/레퍼런스는 초기 버전에서 대표 1건만 노출한다(없으면 null). 전체 목록은 추후 '더보기' 전용 조회로 분리.
+        // 담당자 연락처는 로그인한 뷰어에게만 싣는다 — 익명이면 담당자가 있어도 null 이다.
         ContactResponse representativeContact,
+        // 담당자 연락처가 있는데 익명이라 비웠으면 true. 프론트가 '담당자 없음'과 '로그인하면 보임'을 구분하는 데 쓴다.
+        // 담당자가 없거나 연락처를 실었으면 false.
+        boolean contactLoginRequired,
         List<GalleryImageResponse> galleryImages,
         ProjectReferenceResponse representativeReference,
         List<String> materialNames,
@@ -80,8 +86,12 @@ public record CompanyPublicResponse(
 
     // likedByMe/favoritedByMe 는 aggregate(원자료)에 없는 viewer 별 상태라 호출부(조회 서비스)가 계산해 주입한다.
     // 개인화가 무의미한 경로(소유자/관리자 뷰, 익명)는 false 를 넘긴다.
-    public static CompanyPublicResponse from(CompanyAggregate aggregate, boolean likedByMe, boolean favoritedByMe) {
+    // showContact 도 viewer 에 따라 호출부가 정한다: 공개 조회는 로그인 뷰어일 때만 true, 소유자/관리자 뷰는 true.
+    // 빠뜨려서 기본값으로 노출되는 길이 없도록 이 인자를 생략하는 오버로드는 두지 않는다.
+    public static CompanyPublicResponse from(CompanyAggregate aggregate, boolean likedByMe, boolean favoritedByMe,
+                                             boolean showContact) {
         Company c = aggregate.company();
+        CompanyContact contact = aggregate.representativeContact();
         return new CompanyPublicResponse(
                 c.getId(),
                 c.getCompanyName(),
@@ -107,8 +117,8 @@ public record CompanyPublicResponse(
                 c.isSpotlight(),
                 likedByMe,
                 favoritedByMe,
-                aggregate.representativeContact() == null ? null
-                        : ContactResponse.from(aggregate.representativeContact()),
+                contact != null && showContact ? ContactResponse.from(contact) : null,
+                contact != null && !showContact,
                 aggregate.galleryImages().stream().map(GalleryImageResponse::from).toList(),
                 aggregate.representativeReference() == null ? null
                         : ProjectReferenceResponse.from(aggregate.representativeReference(),

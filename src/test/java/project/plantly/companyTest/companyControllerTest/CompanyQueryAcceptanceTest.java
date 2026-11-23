@@ -14,6 +14,7 @@ import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.domain.user.repository.UserRepository;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
@@ -57,8 +58,10 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
                     .body("data.ceoName", equalTo(CompanyAggregateSeeder.CEO_NAME))
                     .body("data.verified", equalTo(true))
                     .body("data.featured", equalTo(true))
-                    // 부속: 대표 연락처 / 대표 레퍼런스 + 표지 썸네일 1장 / 갤러리 2장 / 소재·링크 마스터
-                    .body("data.representativeContact.contactName", equalTo(CompanyAggregateSeeder.REP_CONTACT_NAME))
+                    // 담당자 연락처: 담당자가 있지만 익명이라 비우고, '로그인하면 보임' 플래그를 켠다
+                    .body("data.representativeContact", nullValue())
+                    .body("data.contactLoginRequired", equalTo(true))
+                    // 부속: 대표 레퍼런스 + 표지 썸네일 1장 / 갤러리 2장 / 소재·링크 마스터
                     .body("data.representativeReference.projectTitle", equalTo(CompanyAggregateSeeder.REP_REFERENCE_TITLE))
                     .body("data.representativeReference.thumbnailUrl", equalTo(CompanyAggregateSeeder.REP_THUMBNAIL_URL))
                     .body("data.galleryImages.size()", equalTo(2))
@@ -68,6 +71,76 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
                     // 공개 경계: 내부·운영 필드는 공개 응답에 존재하지 않는다
                     .body("data.businessNumber", nullValue())
                     .body("data.meta", nullValue());
+        }
+
+        @Test
+        @DisplayName("익명 응답 본문 어디에도 담당자의 이름·전화·이메일이 없다 (대표·비대표 담당자 모두)")
+        void anonymous_responseBodyHasNoContactPersonalData() {
+            CookieFilter owner = new CookieFilter();
+            long ownerId = signUpMember(owner, "owner-nocontact@example.com");
+            long companyId = seeder.seedPublishedCompany(ownerId);
+
+            String body = given()
+                    .when()
+                    .get("/api/v1/companies/{id}", companyId)
+                    .then()
+                    .statusCode(200)
+                    .extract().asString();
+
+            // 시더가 넣는 담당자 2명(대표 이담당, 비대표 정사원)의 값
+            assertThat(body).doesNotContain(
+                    CompanyAggregateSeeder.REP_CONTACT_NAME, "01022223333", "rep@plantly.test",
+                    "정사원", "01044445555", "staff@plantly.test");
+            // 대표자명은 공개 정보라 그대로 나간다
+            assertThat(body).contains(CompanyAggregateSeeder.CEO_NAME);
+        }
+
+        @Test
+        @DisplayName("로그인한 회원(소유자 아님)은 공개 조회에서 담당자 연락처를 받는다")
+        void loggedInNonOwner_receivesContact() {
+            CookieFilter owner = new CookieFilter();
+            long ownerId = signUpMember(owner, "owner-contact@example.com");
+            long companyId = seeder.seedPublishedCompany(ownerId);
+            CookieFilter viewer = new CookieFilter();
+            signUpMember(viewer, "viewer-contact@example.com");
+
+            given()
+                    .filter(viewer)
+                    .when()
+                    .get("/api/v1/companies/{id}", companyId)
+                    .then()
+                    .statusCode(200)
+                    .body("data.representativeContact.contactName", equalTo(CompanyAggregateSeeder.REP_CONTACT_NAME))
+                    .body("data.representativeContact.position", equalTo("영업팀장"))
+                    .body("data.representativeContact.phone", equalTo("01022223333"))
+                    .body("data.representativeContact.email", equalTo("rep@plantly.test"))
+                    .body("data.contactLoginRequired", equalTo(false));
+        }
+
+        @Test
+        @DisplayName("담당자가 없는 회사는 로그인 여부와 무관하게 연락처 null, contactLoginRequired=false")
+        void noContact_flagIsFalseForEveryone() {
+            long adminId = createAdminUser("admin-nocontact@example.com");
+            long companyId = seeder.seedAdminRegisteredCompany(adminId);   // 부속 없음 = 담당자 없음
+            CookieFilter viewer = new CookieFilter();
+            signUpMember(viewer, "viewer-nocontact@example.com");
+
+            given()
+                    .when()
+                    .get("/api/v1/companies/{id}", companyId)
+                    .then()
+                    .statusCode(200)
+                    .body("data.representativeContact", nullValue())
+                    .body("data.contactLoginRequired", equalTo(false));
+
+            given()
+                    .filter(viewer)
+                    .when()
+                    .get("/api/v1/companies/{id}", companyId)
+                    .then()
+                    .statusCode(200)
+                    .body("data.representativeContact", nullValue())
+                    .body("data.contactLoginRequired", equalTo(false));
         }
 
         @Test
@@ -134,6 +207,9 @@ class CompanyQueryAcceptanceTest extends AcceptanceTest {
                     .statusCode(200)
                     .body("success", equalTo(true))
                     .body("data.profile.companyName", equalTo(CompanyAggregateSeeder.COMPANY_NAME))
+                    // 소유자 뷰는 담당자 연락처를 그대로 싣는다(수정 화면 재료)
+                    .body("data.profile.representativeContact.contactName", equalTo(CompanyAggregateSeeder.REP_CONTACT_NAME))
+                    .body("data.profile.contactLoginRequired", equalTo(false))
                     .body("data.meta.businessNumber", equalTo(CompanyAggregateSeeder.BUSINESS_NUMBER))
                     .body("data.meta.registrationSource", equalTo("USER"))
                     .body("data.meta.ownerUserId", equalTo((int) ownerId))

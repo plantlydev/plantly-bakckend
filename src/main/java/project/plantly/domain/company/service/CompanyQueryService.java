@@ -153,6 +153,7 @@ public class CompanyQueryService {
 
     // 공개(비소유자) 조회: 소프트 삭제되거나 비공개(PRIVATE)인 회사는 미존재로 취급한다(존재 노출 방지 → 404).
     // viewerId = 로그인 유저 id (익명이면 null). 좋아요/즐겨찾기 여부(likedByMe/favoritedByMe)는 이 뷰어 기준으로 계산한다.
+    // 익명이면 담당자 연락처를 비우고 contactLoginRequired 로 알린다.
     public CompanyPublicResponse getPublic(Long companyId, Long viewerId) {
         Company company = companyRepository.findById(companyId)
                 .filter(c -> !c.isDeleted())
@@ -163,8 +164,11 @@ public class CompanyQueryService {
         boolean likedByMe = viewerId != null && companyLikeRepository.existsByUserIdAndCompanyId(viewerId, companyId);
         boolean favoritedByMe = viewerId != null && companyFavoriteRepository.existsByUserIdAndCompanyId(viewerId, companyId);
 
+        // 담당자 연락처(개인의 이름·전화·이메일)는 로그인한 뷰어에게만 싣는다. 로그인 판정은 개인화와 같은 viewerId 기준이다.
+        boolean showContact = viewerId != null;
+
         CompanyAggregate aggregate = aggregateLoader.load(company);
-        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe);
+        return CompanyPublicResponse.from(aggregate, likedByMe, favoritedByMe, showContact);
     }
 
     // 소유자 전용 상세: 요청자가 해당 회사의 멤버여야 한다. 삭제된 회사는 소유자에게도 없는 회사다(404) —
