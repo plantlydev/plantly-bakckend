@@ -61,6 +61,7 @@ import project.plantly.domain.user.enums.UserStatus;
 import project.plantly.global.security.UserPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -415,17 +416,33 @@ public class CompanyControllerTest {
     }
 
     @Test
-    @DisplayName("공개 상세 조회는 인증 없이도 공개 프로필(meta 제외)을 반환한다")
+    @DisplayName("공개 상세 조회는 인증 없이도 공개 프로필(meta 제외)을 반환한다 — 익명이면 서비스에 viewerId=null 을 넘긴다")
     void getCompany_public_success() throws Exception {
-        given(companyQueryService.getPublic(1L, null)).willReturn(CompanyResponseSamples.fullPublic());
+        given(companyQueryService.getPublic(1L, null)).willReturn(CompanyResponseSamples.anonymousPublic());
 
         mockMvc.perform(get("/api/v1/companies/{id}", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.companyName").value("플랜틀리테크"))
-                .andExpect(jsonPath("$.data.representativeContact.contactName").value("이담당"))
+                .andExpect(jsonPath("$.data.representativeContact").value(nullValue()))
+                .andExpect(jsonPath("$.data.contactLoginRequired").value(true))
                 .andDo(document("company-public-detail",
+                        pathParameters(parameterWithName("id").description("회사 ID")),
+                        responseFields(CompanyApiDocs.companyPublicResponseFields())));
+    }
+
+    @Test
+    @DisplayName("공개 상세 조회에 로그인 뷰어는 서비스에 자기 id 를 넘기고 담당자 연락처까지 받는다")
+    void getCompany_public_loggedIn() throws Exception {
+        given(companyQueryService.getPublic(1L, 7L)).willReturn(CompanyResponseSamples.fullPublic());
+        authenticate(7L, UserRole.MEMBER);
+
+        mockMvc.perform(get("/api/v1/companies/{id}", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.representativeContact.contactName").value("이담당"))
+                .andExpect(jsonPath("$.data.contactLoginRequired").value(false))
+                .andDo(document("company-public-detail-member",
                         pathParameters(parameterWithName("id").description("회사 ID")),
                         responseFields(CompanyApiDocs.companyPublicResponseFields())));
     }

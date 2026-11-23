@@ -649,17 +649,34 @@ include::{snippets}/company-favorites/response-fields.adoc[]
 
 부속 중 연락처·프로젝트 레퍼런스는 대표 1건만(없으면 `null`), 레퍼런스 이미지는 표지 썸네일 1장만 내려갑니다.
 
+*담당자 연락처는 로그인한 사용자에게만 내려갑니다.* 담당자 개인의 이름·전화·이메일이기 때문입니다. 대표자명(`ceoName`)은 회사의 공개 정보라 누구에게나 내려갑니다.
+
+[cols="2,2,2"]
+|===
+| 상황 | `representativeContact` | `contactLoginRequired`
+
+| 로그인 + 담당자 있음 | 연락처 | `false`
+| 비로그인 + 담당자 있음 | `null` | `true`
+| 담당자 없음 | `null` | `false`
+|===
+
+`contactLoginRequired` 가 `true` 이면 화면에 "로그인하면 담당자 연락처를 볼 수 있음" 안내를 띄우면 됩니다.
+
 ==== 요청
 
 include::{snippets}/company-public-detail/http-request.adoc[]
 
 include::{snippets}/company-public-detail/path-parameters.adoc[]
 
-==== 성공 응답 (200 OK)
+==== 성공 응답 — 비로그인 (200 OK)
 
 include::{snippets}/company-public-detail/http-response.adoc[]
 
 include::{snippets}/company-public-detail/response-fields.adoc[]
+
+==== 성공 응답 — 로그인 (200 OK)
+
+include::{snippets}/company-public-detail-member/http-response.adoc[]
 
 ==== 예외 응답
 

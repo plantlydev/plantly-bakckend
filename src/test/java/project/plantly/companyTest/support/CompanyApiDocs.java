@@ -492,7 +492,8 @@ public class CompanyApiDocs {
                 fieldWithPath(p + "favoritedByMe").type(JsonFieldType.BOOLEAN).description("로그인 뷰어가 이 회사를 즐겨찾기 했는지 (익명·소유자/관리자 뷰는 false)"),
 
                 // 대표 연락처 1건 (없으면 null)
-                fieldWithPath(p + "representativeContact").type(JsonFieldType.OBJECT).optional().description("대표 연락처 (없으면 null)"),
+                fieldWithPath(p + "representativeContact").type(JsonFieldType.OBJECT).optional().description("대표 담당자 연락처 (없으면 null). 공개 조회는 로그인한 뷰어에게만 싣고, 익명이면 담당자가 있어도 null"),
+                fieldWithPath(p + "contactLoginRequired").type(JsonFieldType.BOOLEAN).description("담당자 연락처가 있지만 익명이라 비웠으면 true ('로그인하면 보임' 안내용). 담당자가 없거나 연락처를 실었으면 false"),
                 fieldWithPath(p + "representativeContact.contactName").type(JsonFieldType.STRING).optional().description("담당자명"),
                 fieldWithPath(p + "representativeContact.position").type(JsonFieldType.STRING).optional().description("직책"),
                 fieldWithPath(p + "representativeContact.phone").type(JsonFieldType.STRING).optional().description("전화번호"),
